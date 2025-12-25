@@ -1,5 +1,12 @@
+import com.github.gradle.node.npm.task.NpxTask
+
 plugins {
-    // Root intentionally minimal; per-module plugins are applied in each subproject.
+    id("com.github.node-gradle.node") version "7.1.0"
+}
+
+node {
+    version.set("20.11.1")
+    download.set(true)
 }
 
 allprojects {
@@ -12,18 +19,16 @@ allprojects {
 }
 
 subprojects {
-    // Make every submodule buildable (even placeholders).
     apply(plugin = "java-library")
-/*
-    java {
-        toolchain {
-            languageVersion.set(JavaLanguageVersion.of(17))
-        }
-        withSourcesJar()
-        withJavadocJar()
-    }
-*/
     tasks.withType<Test>().configureEach {
         useJUnitPlatform()
     }
+}
+
+tasks.register<NpxTask>("serverConformanceTest") {
+    group = "verification"
+    description = "Run durable-streams server conformance tests (server must be running)."
+    command.set("@durable-streams/server-conformance-tests")
+    args.set(listOf("--run", "http://localhost:4437"))
+    dependsOn(tasks.named("nodeSetup"))
 }
