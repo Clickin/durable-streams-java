@@ -30,12 +30,22 @@ public final class InMemoryStreamStore implements StreamStore {
 
     private final Map<URI, StreamState> streams = new ConcurrentHashMap<>();
     private final ServiceLoaderCodecRegistry codecs;
+    private final OffsetGenerator offsetGenerator;
 
     public InMemoryStreamStore() {
-        this(ServiceLoaderCodecRegistry.defaultRegistry());
+        this(new LexiLongOffsetGenerator(), ServiceLoaderCodecRegistry.defaultRegistry());
     }
 
     public InMemoryStreamStore(ServiceLoaderCodecRegistry codecs) {
+        this(new LexiLongOffsetGenerator(), codecs);
+    }
+
+    public InMemoryStreamStore(OffsetGenerator offsetGenerator) {
+        this(offsetGenerator, ServiceLoaderCodecRegistry.defaultRegistry());
+    }
+
+    public InMemoryStreamStore(OffsetGenerator offsetGenerator, ServiceLoaderCodecRegistry codecs) {
+        this.offsetGenerator = Objects.requireNonNull(offsetGenerator, "offsetGenerator");
         this.codecs = Objects.requireNonNull(codecs, "codecs");
     }
 
