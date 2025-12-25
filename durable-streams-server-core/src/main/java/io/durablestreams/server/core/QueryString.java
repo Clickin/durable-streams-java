@@ -3,16 +3,13 @@ package io.durablestreams.server.core;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
-/**
- * Minimal query string parser (framework-neutral).
- */
-final class QueryString {
-
+public final class QueryString {
     private QueryString() {}
 
-    static Map<String, String> parse(URI uri) {
+    public static Map<String, String> parse(URI uri) {
         String q = uri.getRawQuery();
         if (q == null || q.isEmpty()) return Map.of();
         Map<String, String> out = new HashMap<>();

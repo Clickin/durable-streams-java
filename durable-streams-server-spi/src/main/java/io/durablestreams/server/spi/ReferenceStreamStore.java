@@ -1,37 +1,41 @@
 package io.durablestreams.server.spi;
 
 import io.durablestreams.core.Offset;
-import io.durablestreams.server.spi.StreamCodec;
-import io.durablestreams.server.spi.StreamConfig;
-import io.durablestreams.server.spi.StreamMetadata;
-import io.durablestreams.server.spi.CreateOutcome;
-import io.durablestreams.server.spi.AppendOutcome;
-import io.durablestreams.server.spi.ReadOutcome;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.net.URI;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.ServiceLoader;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
-/**
- * In-memory reference store using provided OffsetGenerator.
- *
- * <p>Replaces hardcoded LexiLong offset generation with pluggable strategy.
- * Demonstrates proper TTL/expiration enforcement, retention handling, and ETag formatting.
- */
 public final class ReferenceStreamStore implements StreamStore {
+    private static final int DEFAULT_MAX_BYTES = 64 * 1024;
+    private static final int DEFAULT_MAX_MESSAGES = 1024;
 
     private final OffsetGenerator offsetGenerator;
     private final StreamCodecRegistry codecRegistry;
     private final Clock clock;
+    private final Map<URI, StreamState> streams = new ConcurrentHashMap<>();
 
-    // Storage
-    private final Map<java.net.URI, StreamState> streams = new ConcurrentHashMap<>();
+    public ReferenceStreamStore(OffsetGenerator offsetGenerator) {
+        this(offsetGenerator, defaultRegistry(), Clock.systemUTC());
+    }
+
+    public ReferenceStreamStore(OffsetGenerator offsetGenerator, StreamCodecRegistry codecRegistry) {
+        this(offsetGenerator, codecRegistry, Clock.systemUTC());
+    }
 
     public ReferenceStreamStore(OffsetGenerator offsetGenerator, StreamCodecRegistry codecRegistry, Clock clock) {
         this.offsetGenerator = Objects.requireNonNull(offsetGenerator, "offsetGenerator");
@@ -39,25 +43,21 @@ public final class ReferenceStreamStore implements StreamStore {
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
-    public ReferenceStreamStore(OffsetGenerator offsetGenerator) {
-        this(offsetGenerator, new ServiceLoaderCodecRegistry(Thread.currentThread().getContextClassLoader()));
-    }
-
     @Override
-    public CreateOutcome create(java.net.URI url, StreamConfig config, java.io.InputStream initialBody) throws Exception {
+    public CreateOutcome create(URI url, StreamConfig config, InputStream initialBody) throws Exception {
         Objects.requireNonNull(url, "url");
         Objects.requireNonNull(config, "config");
 
         StreamState s = streams.compute(url, (u, existing) -> {
             if (existing != null) return existing;
-            return StreamState.createNew(config, codecRegistry);
+            return StreamState.createNew(config, codecRegistry, offsetGenerator, clock);
         });
 
-        return s.createOutcomeFor(url, config, initialBody);
+        return s.createOutcomeFor(config, initialBody);
     }
 
     @Override
-    public AppendOutcome append(java.net.URI url, String contentType, String streamSeq, java.io.InputStream body) throws Exception {
+    public AppendOutcome append(URI url, String contentType, String streamSeq, InputStream body) throws Exception {
         StreamState s = streams.get(url);
         if (s == null) return new AppendOutcome(AppendOutcome.Status.NOT_FOUND, null, "stream not found");
         if (contentType == null || contentType.isBlank()) return new AppendOutcome(AppendOutcome.Status.BAD_REQUEST, null, "missing Content-Type");
@@ -69,18 +69,18 @@ public final class ReferenceStreamStore implements StreamStore {
     }
 
     @Override
-    public boolean delete(java.net.URI url) {
+    public boolean delete(URI url) {
         return streams.remove(url) != null;
     }
 
     @Override
-    public Optional<StreamMetadata> head(java.net.URI url) {
+    public Optional<StreamMetadata> head(URI url) {
         StreamState s = streams.get(url);
         return s == null ? Optional.empty() : Optional.of(s.snapshotMeta());
     }
 
     @Override
-    public ReadOutcome read(java.net.URI url, Offset startOffset, int maxBytesOrMessages) throws Exception {
+    public ReadOutcome read(URI url, Offset startOffset, int maxBytesOrMessages) throws Exception {
         StreamState s = streams.get(url);
         if (s == null) return new ReadOutcome(ReadOutcome.Status.NOT_FOUND, null, null, null, false, null, null);
 
@@ -89,16 +89,22 @@ public final class ReferenceStreamStore implements StreamStore {
     }
 
     @Override
-    public boolean await(java.net.URI url, Offset startOffset, Duration timeout) throws Exception {
+    public boolean await(URI url, Offset startOffset, Duration timeout) throws Exception {
         StreamState s = streams.get(url);
         return s != null && s.await(startOffset, timeout);
     }
 
-    // Constants for defaults
-    private static final int DEFAULT_MAX_BYTES = 64 * 1024;
-    private static final int DEFAULT_MAX_MESSAGES = 1024;
+    private static StreamCodecRegistry defaultRegistry() {
+        List<StreamCodec> codecs = new ArrayList<>();
+        ServiceLoader<StreamCodecProvider> loader = ServiceLoader.load(StreamCodecProvider.class);
+        for (StreamCodecProvider provider : loader) {
+            codecs.addAll(provider.codecs());
+        }
+        return contentType -> codecs.stream()
+                .filter(codec -> codec.contentType().equalsIgnoreCase(contentType))
+                .findFirst();
+    }
 
-    // Stream state implementation similar to InMemoryStreamStore but using OffsetGenerator
     private static final class StreamState {
         private final ReentrantLock lock = new ReentrantLock();
         private final Condition dataArrived = lock.newCondition();
@@ -106,31 +112,46 @@ public final class ReferenceStreamStore implements StreamStore {
         private final StreamMetadata meta;
         private final StreamCodec codec;
         private final StreamCodec.State state;
+        private final OffsetGenerator offsetGenerator;
+        private final Clock clock;
         private Offset nextOffset;
-
         private String lastSeq;
         private boolean createdOnce;
 
-        private StreamState(StreamMetadata meta, StreamCodec codec, StreamCodec.State state, Offset nextOffset) {
+        private StreamState(
+                StreamMetadata meta,
+                StreamCodec codec,
+                StreamCodec.State state,
+                Offset nextOffset,
+                OffsetGenerator offsetGenerator,
+                Clock clock
+        ) {
             this.meta = meta;
             this.codec = codec;
             this.state = state;
             this.nextOffset = nextOffset;
+            this.offsetGenerator = offsetGenerator;
+            this.clock = clock;
         }
 
-        static StreamState createNew(StreamConfig config, StreamCodecRegistry codecRegistry) {
+        static StreamState createNew(
+                StreamConfig config,
+                StreamCodecRegistry codecRegistry,
+                OffsetGenerator offsetGenerator,
+                Clock clock
+        ) {
             String ct = config.contentType();
             StreamCodec codec;
             if ("application/json".equalsIgnoreCase(ct)) {
                 codec = codecRegistry.find(ct).orElseThrow(() ->
                         new IllegalArgumentException("application/json requires an installed JSON codec module"));
             } else {
-                codec = codecRegistry.fallbackBytes();
+                codec = codecRegistry.find(ct).orElseGet(ByteStreamCodec::new);
             }
             StreamCodec.State st = codec.createEmpty();
-            Offset next = new Offset("0"); // Will be replaced by first offsetGenerator.next(null, 0)
-            StreamMetadata meta = new StreamMetadata(java.util.UUID.randomUUID().toString().replace("-", ""), config, next, null, config.expiresAt().orElse(null));
-            return new StreamState(meta, codec, st, next);
+            Offset next = Offset.beginning();
+            StreamMetadata meta = new StreamMetadata(UUID.randomUUID().toString().replace("-", ""), config, next, null, config.expiresAt().orElse(null));
+            return new StreamState(meta, codec, st, next, offsetGenerator, clock);
         }
 
         boolean isJson() {
@@ -138,28 +159,18 @@ public final class ReferenceStreamStore implements StreamStore {
         }
 
         StreamMetadata snapshotMeta() {
-            // Update remaining TTL on snapshot
-            Instant now = Clock.systemUTC().instant();
-            Long ttlSecondsRemaining = calculateTtlRemaining(meta.expiresAt(), now);
+            Long ttlSecondsRemaining = calculateTtlRemaining(meta.expiresAt(), clock.instant());
             return new StreamMetadata(meta.internalStreamId(), meta.config(), nextOffset, ttlSecondsRemaining, meta.expiresAt().orElse(null));
         }
 
-        CreateOutcome createOutcomeFor(java.net.URI url, StreamConfig requested, java.io.InputStream initialBody) throws Exception {
-            // Check expiration first
-            Instant now = clock.instant();
-            if (isExpired(requested.expiresAt(), now)) {
-                return new CreateOutcome(CreateOutcome.Status.EXISTS_CONFLICT, snapshotMeta(), nextOffset);
-            }
-
+        CreateOutcome createOutcomeFor(StreamConfig requested, InputStream initialBody) throws Exception {
             if (!sameConfig(meta.config(), requested)) {
                 return new CreateOutcome(CreateOutcome.Status.EXISTS_CONFLICT, snapshotMeta(), nextOffset);
             }
 
-            // Apply initial body only if stream is empty (size==0)
             if (codec.size(state) == 0 && initialBody != null) {
                 codec.applyInitial(state, initialBody);
-                Offset newNext = offsetGenerator.next(nextOffset, codec.size(state));
-                nextOffset = newNext;
+                nextOffset = offsetGenerator.next(nextOffset, codec.size(state));
                 dataArrived.signalAll();
             }
 
@@ -168,7 +179,7 @@ public final class ReferenceStreamStore implements StreamStore {
             return new CreateOutcome(first ? CreateOutcome.Status.CREATED : CreateOutcome.Status.EXISTS_MATCH, snapshotMeta(), nextOffset);
         }
 
-        AppendOutcome append(String streamSeq, java.io.InputStream body) throws Exception {
+        AppendOutcome append(String streamSeq, InputStream body) throws Exception {
             lock.lock();
             try {
                 if (streamSeq != null) {
@@ -184,16 +195,19 @@ public final class ReferenceStreamStore implements StreamStore {
                     return new AppendOutcome(AppendOutcome.Status.BAD_REQUEST, null, iae.getMessage());
                 }
 
-                Offset newNext = offsetGenerator.next(nextOffset, codec.size(state));
-                nextOffset = newNext;
+                nextOffset = offsetGenerator.next(nextOffset, codec.size(state));
                 dataArrived.signalAll();
-                return new AppendOutcome(AppendOutcome.Status.APPENDED, newNext, null);
+                return new AppendOutcome(AppendOutcome.Status.APPENDED, nextOffset, null);
             } finally {
                 lock.unlock();
             }
         }
 
         ReadOutcome read(Offset startOffset, int limit) throws Exception {
+            if (isExpired(meta.expiresAt(), clock.instant())) {
+                return new ReadOutcome(ReadOutcome.Status.GONE, null, null, null, false, null, null);
+            }
+
             long pos = decodeStart(startOffset);
             if (pos < 0) return new ReadOutcome(ReadOutcome.Status.BAD_REQUEST, null, null, null, false, null, null);
 
@@ -201,16 +215,10 @@ public final class ReferenceStreamStore implements StreamStore {
             long start = Math.min(pos, tail);
 
             StreamCodec.ReadChunk chunk = codec.read(state, start, limit);
-            Offset next = new Offset(chunk.nextPosition()); // Will be replaced by offsetGenerator.encode(...)
-            
-            // Check if stream has expired before returning data
-            Instant now = clock.instant();
-            if (isExpired(meta.expiresAt(), now)) {
-                return new ReadOutcome(ReadOutcome.Status.GONE, null, null, null, false, null, null);
-            }
+            Offset next = offsetGenerator.next(nextOffset, chunk.nextPosition());
+            Offset startOffsetForEtag = offsetGenerator.next(nextOffset, start);
+            String etag = "\"" + meta.internalStreamId() + ":" + startOffsetForEtag.value() + ":" + next.value() + "\"";
 
-            String internalId = meta.internalStreamId();
-            String etag = "\"" + internalId + ":" + encodeForEtag(start) + ":" + next.value() + "\"";
             return new ReadOutcome(ReadOutcome.Status.OK, chunk.body(), meta.config().contentType(), next, chunk.upToDate(), etag, null);
         }
 
@@ -239,10 +247,9 @@ public final class ReferenceStreamStore implements StreamStore {
                     && a.expiresAt().equals(b.expiresAt());
         }
 
-        private long decodeStart(Offset off) {
+        private static long decodeStart(Offset off) {
             if (off == null) return 0;
             if ("-1".equals(off.value())) return 0;
-            // For now, assume LexiLong format - can be made pluggable
             try {
                 return Long.parseLong(off.value(), 36);
             } catch (Exception e) {
@@ -250,32 +257,83 @@ public final class ReferenceStreamStore implements StreamStore {
             }
         }
 
-        private String encodeForEtag(Offset offset) {
-            // For now, use direct value - can be made pluggable
-            return offset.value();
-        }
-
-        private boolean isExpired(Optional<Instant> expiresAt, Instant now) {
+        private static boolean isExpired(Optional<Instant> expiresAt, Instant now) {
             return expiresAt.isPresent() && expiresAt.get().isBefore(now);
         }
 
-        private Long calculateTtlRemaining(Optional<Instant> expiresAt, Instant now) {
+        private static Long calculateTtlRemaining(Optional<Instant> expiresAt, Instant now) {
             if (expiresAt.isEmpty()) return null;
             Instant expiry = expiresAt.get();
             if (expiry.isBefore(now)) return 0L;
             return Duration.between(now, expiry).getSeconds();
         }
-
-        private static final ReentrantLock lock = new ReentrantLock();
-        private final Condition dataArrived = lock.newCondition();
-
-        private final StreamMetadata meta;
-        private final StreamCodec codec;
-        private final StreamCodec.State state;
-        private Offset nextOffset;
-
-        private String lastSeq;
-        private boolean createdOnce;
     }
-}
+
+    private static final class ByteStreamCodec implements StreamCodec {
+        @Override
+        public String contentType() {
+            return "application/octet-stream";
+        }
+
+        @Override
+        public State createEmpty() {
+            return new ByteState();
+        }
+
+        @Override
+        public void applyInitial(State state, InputStream body) throws Exception {
+            if (body == null) return;
+            byte[] bytes = readAll(body);
+            if (bytes.length == 0) return;
+            ((ByteState) state).append(bytes);
+        }
+
+        @Override
+        public void append(State state, InputStream body) throws Exception {
+            byte[] bytes = readAll(body);
+            if (bytes.length == 0) throw new IllegalArgumentException("empty body");
+            ((ByteState) state).append(bytes);
+        }
+
+        @Override
+        public ReadChunk read(State state, long start, int limit) {
+            ByteState st = (ByteState) state;
+            byte[] all = st.bytes();
+            if (start >= all.length) {
+                return new ReadChunk(new byte[0], all.length, true);
+            }
+            int end = (int) Math.min(all.length, start + limit);
+            byte[] chunk = Arrays.copyOfRange(all, (int) start, end);
+            return new ReadChunk(chunk, end, end >= all.length);
+        }
+
+        @Override
+        public long size(State state) {
+            return ((ByteState) state).size();
+        }
+
+        private static byte[] readAll(InputStream body) throws Exception {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int r;
+            while ((r = body.read(buf)) >= 0) out.write(buf, 0, r);
+            return out.toByteArray();
+        }
+
+        private static final class ByteState implements State {
+            private final ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+            private void append(byte[] bytes) throws Exception {
+                out.write(bytes);
+            }
+
+            private long size() {
+                return out.size();
+            }
+
+            private byte[] bytes() {
+                return out.toByteArray();
+            }
+        }
+    }
 }
