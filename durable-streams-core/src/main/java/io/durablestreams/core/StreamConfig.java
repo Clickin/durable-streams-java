@@ -1,5 +1,7 @@
 package io.durablestreams.core;
 
+import java.time.Instant;
+
 /**
  * Stream configuration as defined at creation time.
  *
