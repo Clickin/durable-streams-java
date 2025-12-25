@@ -42,10 +42,6 @@ public final class SseLoop {
 
         try {
             while (!pub.isClosed()) {
-                if (pub.getNumberOfSubscribers() == 0) {
-                    pub.close();
-                    return;
-                }
                 URI url = Urls.withQuery(request.streamUrl(), Map.of(
                         Protocol.Q_LIVE, Protocol.LIVE_SSE,
                         Protocol.Q_OFFSET, cur.value()

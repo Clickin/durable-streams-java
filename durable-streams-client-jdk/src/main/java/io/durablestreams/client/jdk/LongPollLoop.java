@@ -42,10 +42,6 @@ public final class LongPollLoop {
 
         try {
             while (!pub.isClosed()) {
-                if (pub.getNumberOfSubscribers() == 0) {
-                    pub.close();
-                    return;
-                }
                 Map<String, String> q = new LinkedHashMap<>();
                 q.put(Protocol.Q_LIVE, Protocol.LIVE_LONG_POLL);
                 q.put(Protocol.Q_OFFSET, cur.value());
