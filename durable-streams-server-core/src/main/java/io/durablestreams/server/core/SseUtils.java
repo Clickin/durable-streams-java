@@ -1,26 +1,8 @@
 package io.durablestreams.server.core;
 
-import io.durablestreams.core.Offset;
-import io.durablestreams.server.spi.CachePolicy;
-import io.durablestreams.server.spi.StreamMetadata;
-
-/**
- * Server-Sent Events (SSE) utilities for protocol compliance.
- *
- * <p>Provides helpers for rendering events and control JSON according to
- * the Durable Streams specification.
- */
 public final class SseUtils {
-    
     private SseUtils() {}
-    
-    /**
-     * Renders a control event JSON payload with proper quoting.
-     *
-     * @param streamNextOffset next offset value
-     * @param streamCursor optional cursor value (may be null)
-     * @return quoted JSON string as required by specification
-     */
+
     public static String renderControlJson(String streamNextOffset, String streamCursor) {
         StringBuilder sb = new StringBuilder();
         sb.append("{\"streamNextOffset\":\"");
@@ -33,13 +15,10 @@ public final class SseUtils {
         return sb.toString();
     }
 
-    /**
-     * Quotes a JSON string value for use in control events and ETags.
-     * Handles backslashes and quotes properly per JSON specification.
-     *
-     * @param sb StringBuilder to append to
-     * @param value the string value to quote
-     */
+    public static String quotedEtag(String internalId, String fromOffset, String toOffset) {
+        return "\"" + internalId + ":" + fromOffset + ":" + toOffset + "\"";
+    }
+
     private static void quoteJsonString(StringBuilder sb, String value) {
         for (int i = 0; i < value.length(); i++) {
             char c = value.charAt(i);
@@ -61,23 +40,5 @@ public final class SseUtils {
                 sb.append(c);
             }
         }
-    }
-        sb.append("}");
-        return sb.toString();
-    }
-    
-    /**
-     * Formats ETag value as quoted string.
-     *
-     * <p>Spec shows ETags as quoted: "stream:from:to"
-     * This helper ensures consistent quoting.
-     *
-     * @param internalId the internal stream identifier
-     * @param fromOffset the starting offset (may be encoded)
-     * @param toOffset the ending offset (may be encoded)
-     * @return quoted ETag value
-     */
-    public static String quotedEtag(String internalId, String fromOffset, String toOffset) {
-        return "\"" + internalId + ":" + fromOffset + ":" + toOffset + "\"";
     }
 }
