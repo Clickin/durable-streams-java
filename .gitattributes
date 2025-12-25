@@ -1,0 +1,45 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+indent_style = space
+indent_size = 4
+
+# Microsoft patterns
+*.dll     binary
+*.EXE      binary
+*.exe      binary
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/
+gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Build outputs
+out/
+target/
+dist/
+bin/
