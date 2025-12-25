@@ -30,10 +30,6 @@ public final class CatchUpLoop {
 
         try {
             while (!pub.isClosed()) {
-                if (pub.getNumberOfSubscribers() == 0) {
-                    pub.close();
-                    return;
-                }
                 ReadResult result = client.readCatchUp(new ReadRequest(request.streamUrl(), cur, etag));
                 if (result.status() == 304) {
                     if (result.upToDate()) {
