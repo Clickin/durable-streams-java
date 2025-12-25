@@ -16,5 +16,6 @@ include(
   "durable-streams-micronaut-server",
   "durable-streams-micronaut-client",
   "durable-streams-quarkus-server",
-  "durable-streams-quarkus-client"
+  "durable-streams-quarkus-client",
+  "durable-streams-conformance-runner"
 )
