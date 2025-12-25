@@ -1,13 +1,10 @@
 package io.durablestreams.client.jdk;
 
-import io.durablestreams.core.ControlJson;
 import io.durablestreams.core.Offset;
 import io.durablestreams.core.Protocol;
-import io.durablestreams.core.SseParser;
 import io.durablestreams.core.StreamEvent;
 import io.durablestreams.core.Urls;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.URI;
@@ -15,180 +12,94 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.*;
+import java.time.Instant;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.Flow;
-import java.util.concurrent.SubmissionPublisher;
 
-/**
- * JDK {@link HttpClient}-based implementation.
- */
 public final class JdkDurableStreamsClient implements DurableStreamsClient {
 
+    private static final Duration DEFAULT_LONG_POLL_TIMEOUT = Duration.ofSeconds(25);
     private final HttpClient http;
 
     public JdkDurableStreamsClient(HttpClient http) {
         this.http = Objects.requireNonNull(http, "http");
     }
 
-    public static JdkDurableStreamsClient defaultClient() {
-        return new JdkDurableStreamsClient(HttpClient.newHttpClient());
-    }
-
     @Override
-    public CreateResult create(URI streamUrl, String contentType, Map<String, String> headers, InputStream initialBody) throws Exception {
-        HttpRequest.Builder b = HttpRequest.newBuilder(streamUrl)
-                .PUT(bodyPublisher(initialBody))
-                .header(Protocol.H_CONTENT_TYPE, contentType);
+    public CreateResult create(CreateRequest request) throws Exception {
+        HttpRequest.Builder b = HttpRequest.newBuilder(request.streamUrl())
+                .PUT(bodyPublisher(request.initialBody()))
+                .header(Protocol.H_CONTENT_TYPE, request.contentType());
 
-        applyHeaders(b, headers);
+        applyHeaders(b, request.headers());
         HttpResponse<Void> resp = http.send(b.build(), HttpResponse.BodyHandlers.discarding());
-
         Offset next = headerOffset(resp, Protocol.H_STREAM_NEXT_OFFSET);
         return new CreateResult(resp.statusCode(), next);
     }
 
     @Override
-    public AppendResult append(URI streamUrl, String contentType, Map<String, String> headers, InputStream body) throws Exception {
-        HttpRequest.Builder b = HttpRequest.newBuilder(streamUrl)
-                .POST(bodyPublisher(body))
-                .header(Protocol.H_CONTENT_TYPE, contentType);
+    public AppendResult append(AppendRequest request) throws Exception {
+        HttpRequest.Builder b = HttpRequest.newBuilder(request.streamUrl())
+                .POST(bodyPublisher(request.body()))
+                .header(Protocol.H_CONTENT_TYPE, request.contentType());
 
-        applyHeaders(b, headers);
+        applyHeaders(b, request.headers());
         HttpResponse<Void> resp = http.send(b.build(), HttpResponse.BodyHandlers.discarding());
         Offset next = headerOffset(resp, Protocol.H_STREAM_NEXT_OFFSET);
         return new AppendResult(resp.statusCode(), next);
     }
 
     @Override
-    public ReadResult read(URI streamUrl, Offset offset) throws Exception {
-        URI url = Urls.withQuery(streamUrl, Map.of(Protocol.Q_OFFSET, offset.value()));
-        HttpRequest req = HttpRequest.newBuilder(url)
-                .GET()
+    public HeadResult head(URI streamUrl) throws Exception {
+        HttpRequest req = HttpRequest.newBuilder(streamUrl)
+                .method("HEAD", HttpRequest.BodyPublishers.noBody())
                 .build();
 
-        HttpResponse<byte[]> resp = http.send(req, HttpResponse.BodyHandlers.ofByteArray());
+        HttpResponse<Void> resp = http.send(req, HttpResponse.BodyHandlers.discarding());
+        String contentType = first(resp, Protocol.H_CONTENT_TYPE).orElse(null);
+        Offset next = headerOffset(resp, Protocol.H_STREAM_NEXT_OFFSET);
+        Long ttl = parseLongSafe(first(resp, Protocol.H_STREAM_TTL).orElse(null));
+        Instant expiresAt = parseInstantSafe(first(resp, Protocol.H_STREAM_EXPIRES_AT).orElse(null));
+        return new HeadResult(resp.statusCode(), contentType, next, ttl, expiresAt);
+    }
+
+    @Override
+    public void delete(URI streamUrl) throws Exception {
+        HttpRequest req = HttpRequest.newBuilder(streamUrl)
+                .DELETE()
+                .build();
+
+        http.send(req, HttpResponse.BodyHandlers.discarding());
+    }
+
+    @Override
+    public ReadResult readCatchUp(ReadRequest request) throws Exception {
+        Offset offset = request.offset() == null ? Offset.beginning() : request.offset();
+        URI url = Urls.withQuery(request.streamUrl(), Map.of(Protocol.Q_OFFSET, offset.value()));
+        HttpRequest.Builder b = HttpRequest.newBuilder(url).GET();
+        if (request.ifNoneMatch() != null) {
+            b.header(Protocol.H_IF_NONE_MATCH, request.ifNoneMatch());
+        }
+
+        HttpResponse<byte[]> resp = http.send(b.build(), HttpResponse.BodyHandlers.ofByteArray());
         Offset next = headerOffset(resp, Protocol.H_STREAM_NEXT_OFFSET);
         String ct = first(resp, Protocol.H_CONTENT_TYPE).orElse(null);
         boolean upToDate = Protocol.BOOL_TRUE.equalsIgnoreCase(first(resp, Protocol.H_STREAM_UP_TO_DATE).orElse("false"));
         String etag = first(resp, Protocol.H_ETAG).orElse(null);
-        return new ReadResult(resp.statusCode(), resp.body(), ct, next, upToDate, etag);
+        byte[] body = resp.body() == null ? new byte[0] : resp.body();
+        return new ReadResult(resp.statusCode(), body, ct, next, upToDate, etag);
     }
 
     @Override
-    public Flow.Publisher<StreamEvent> liveLongPoll(URI streamUrl, Offset offset, String cursor, Duration timeout) {
-        Objects.requireNonNull(streamUrl, "streamUrl");
-        Objects.requireNonNull(offset, "offset");
-        Duration to = timeout == null ? Duration.ofSeconds(25) : timeout;
-
-        SubmissionPublisher<StreamEvent> pub = new SubmissionPublisher<>();
-
-        Thread t = new Thread(() -> {
-            Offset cur = offset;
-            String c = cursor;
-
-            try {
-                while (!pub.isClosed()) {
-                    Map<String, String> q = new LinkedHashMap<>();
-                    q.put(Protocol.Q_LIVE, Protocol.LIVE_LONG_POLL);
-                    q.put(Protocol.Q_OFFSET, cur.value());
-                    if (c != null) q.put(Protocol.Q_CURSOR, c);
-
-                    URI url = Urls.withQuery(streamUrl, q);
-
-                    HttpRequest req = HttpRequest.newBuilder(url)
-                            .timeout(to.plusSeconds(5))
-                            .GET()
-                            .build();
-
-                    HttpResponse<byte[]> resp = http.send(req, HttpResponse.BodyHandlers.ofByteArray());
-
-                    if (resp.statusCode() == 204) {
-                        Offset next = headerOffset(resp, Protocol.H_STREAM_NEXT_OFFSET);
-                        pub.submit(new StreamEvent.UpToDate(next));
-                        cur = next;
-                        c = first(resp, Protocol.H_STREAM_CURSOR).orElse(c);
-                        continue;
-                    }
-
-                    if (resp.statusCode() != 200) {
-                        pub.closeExceptionally(new IllegalStateException("long-poll status=" + resp.statusCode()));
-                        return;
-                    }
-
-                    Offset next = headerOffset(resp, Protocol.H_STREAM_NEXT_OFFSET);
-                    String ct = first(resp, Protocol.H_CONTENT_TYPE).orElse("application/octet-stream");
-                    byte[] body = resp.body();
-                    if (body != null && body.length > 0) {
-                        pub.submit(new StreamEvent.Data(java.nio.ByteBuffer.wrap(body), ct));
-                    }
-                    cur = next;
-
-                    boolean upToDate = Protocol.BOOL_TRUE.equalsIgnoreCase(first(resp, Protocol.H_STREAM_UP_TO_DATE).orElse("false"));
-                    if (upToDate) pub.submit(new StreamEvent.UpToDate(next));
-
-                    c = first(resp, Protocol.H_STREAM_CURSOR).orElse(c);
-                }
-            } catch (Exception e) {
-                pub.closeExceptionally(e);
-            }
-        }, "durable-streams-longpoll");
-        t.setDaemon(true);
-        t.start();
-
-        return pub;
+    public Flow.Publisher<StreamEvent> subscribeLongPoll(LiveLongPollRequest request) {
+        return new LongPollLoop(http, request).publisher();
     }
 
     @Override
-    public Flow.Publisher<StreamEvent> liveSse(URI streamUrl, Offset offset) {
-        Objects.requireNonNull(streamUrl, "streamUrl");
-        Objects.requireNonNull(offset, "offset");
-
-        SubmissionPublisher<StreamEvent> pub = new SubmissionPublisher<>();
-
-        Thread t = new Thread(() -> {
-            try {
-                URI url = Urls.withQuery(streamUrl, Map.of(
-                        Protocol.Q_LIVE, Protocol.LIVE_SSE,
-                        Protocol.Q_OFFSET, offset.value()
-                ));
-
-                HttpRequest req = HttpRequest.newBuilder(url)
-                        .header(Protocol.H_ACCEPT, Protocol.CT_EVENT_STREAM)
-                        .GET()
-                        .build();
-
-                HttpResponse<InputStream> resp = http.send(req, HttpResponse.BodyHandlers.ofInputStream());
-                if (resp.statusCode() != 200) {
-                    pub.closeExceptionally(new IllegalStateException("sse status=" + resp.statusCode()));
-                    return;
-                }
-
-                try (SseParser parser = new SseParser(resp.body())) {
-                    SseParser.Event ev;
-                    while ((ev = parser.next()) != null) {
-                        String type = ev.eventType();
-                        String data = ev.data();
-
-                        if ("data".equals(type)) {
-                            pub.submit(new StreamEvent.Data(java.nio.ByteBuffer.wrap(data.getBytes(java.nio.charset.StandardCharsets.UTF_8)), "text/plain"));
-                        } else if ("control".equals(type)) {
-                            ControlJson.Control c = ControlJson.parse(data);
-                            pub.submit(new StreamEvent.Control(new Offset(c.streamNextOffset()), Optional.ofNullable(c.streamCursor())));
-                        } else {
-                            // ignore unknown types
-                        }
-                    }
-                }
-
-                pub.close();
-            } catch (Exception e) {
-                pub.closeExceptionally(e);
-            }
-        }, "durable-streams-sse");
-        t.setDaemon(true);
-        t.start();
-
-        return pub;
+    public Flow.Publisher<StreamEvent> subscribeSse(LiveSseRequest request) {
+        return new SseLoop(http, request).publisher();
     }
 
     private static HttpRequest.BodyPublisher bodyPublisher(InputStream in) throws Exception {
@@ -214,6 +125,24 @@ public final class JdkDurableStreamsClient implements DurableStreamsClient {
         String v = resp.headers().firstValue(name).orElse(null);
         if (v == null) return null;
         return new Offset(v);
+    }
+
+    private static Long parseLongSafe(String v) {
+        if (v == null || v.isBlank()) return null;
+        try {
+            return Long.parseLong(v.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static Instant parseInstantSafe(String v) {
+        if (v == null || v.isBlank()) return null;
+        try {
+            return Instant.parse(v.trim());
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private static byte[] readAllBytes(InputStream in) throws Exception {
