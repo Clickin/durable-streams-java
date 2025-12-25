@@ -156,8 +156,13 @@ public final class InMemoryStreamStore implements StreamStore {
             // Apply initial body only if stream is empty (size==0).
             if (codec.size(state) == 0 && initialBody != null) {
                 codec.applyInitial(state, initialBody);
-                nextOffset = new Offset(LexiLong.encode(codec.size(state)));
-                dataArrived.signalAll();
+                lock.lock();
+                try {
+                    nextOffset = new Offset(LexiLong.encode(codec.size(state)));
+                    dataArrived.signalAll();
+                } finally {
+                    lock.unlock();
+                }
             }
 
             boolean first = !createdOnce;
