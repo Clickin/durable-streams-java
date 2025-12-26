@@ -6,6 +6,10 @@ java {
     toolchain { languageVersion.set(JavaLanguageVersion.of(17)) }
 }
 
+kotlin {
+    jvmToolchain(17)
+}
+
 dependencies {
     api(project(":durable-streams-client-jdk"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")

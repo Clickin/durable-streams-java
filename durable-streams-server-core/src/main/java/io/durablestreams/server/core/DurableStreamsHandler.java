@@ -148,6 +148,9 @@ public final class DurableStreamsHandler {
 
     private ServerResponse handleGet(ServerRequest req) throws Exception {
         URI url = stripQuery(req.uri());
+        if (QueryString.hasDuplicate(req.uri(), Protocol.Q_OFFSET)) {
+            throw new BadRequest("duplicate offset parameter");
+        }
         Map<String, String> q = QueryString.parse(req.uri());
         String live = q.get(Protocol.Q_LIVE);
 
@@ -215,10 +218,11 @@ public final class DurableStreamsHandler {
         String ct = meta.get().config().contentType();
         if (!isSseCompatible(ct)) throw new BadRequest("content type incompatible with SSE");
 
-        FlowingSsePublisher pub = new FlowingSsePublisher(store, cursorPolicy, url, offset, maxChunkSize, sseMaxDuration, clock);
+        String clientCursor = q.get(Protocol.Q_CURSOR);
+        FlowingSsePublisher pub = new FlowingSsePublisher(store, cursorPolicy, url, offset, clientCursor, maxChunkSize, sseMaxDuration, clock);
         return new ServerResponse(200, new ResponseBody.Sse(pub))
                 .header(Protocol.H_CONTENT_TYPE, Protocol.CT_EVENT_STREAM)
-                .header("Cache-Control", "no-store");
+                .header("Cache-Control", "no-cache");
     }
 
     private ServerResponse mapReadOutcome(ReadOutcome out, ServerRequest req, URI url, boolean isLive, String clientCursor) throws Exception {
@@ -267,14 +271,26 @@ public final class DurableStreamsHandler {
     }
 
     private static boolean isSseCompatible(String ct) {
-        if (ct == null) return false;
-        ct = ct.toLowerCase(Locale.ROOT);
-        return ct.startsWith("text/") || ct.equals("application/json");
+        String normalized = normalizeContentType(ct);
+        return normalized.startsWith("text/") || normalized.equals("application/json");
     }
 
     private static Offset parseOffset(String raw) {
-        if (raw == null || raw.isEmpty() || Protocol.OFFSET_BEGINNING.equals(raw)) return Offset.beginning();
-        return new Offset(raw);
+        if (raw == null) return Offset.beginning();
+        if (raw.isEmpty()) throw new BadRequest("offset must not be empty");
+        if (Protocol.OFFSET_BEGINNING.equals(raw)) return Offset.beginning();
+        try {
+            return new Offset(raw);
+        } catch (IllegalArgumentException e) {
+            throw new BadRequest(e.getMessage());
+        }
+    }
+
+    private static String normalizeContentType(String contentType) {
+        if (contentType == null) return "";
+        int semi = contentType.indexOf(';');
+        String base = semi >= 0 ? contentType.substring(0, semi) : contentType;
+        return base.trim().toLowerCase(Locale.ROOT);
     }
 
     private static Optional<String> firstHeader(ServerRequest req, String name) {

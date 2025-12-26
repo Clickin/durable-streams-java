@@ -48,20 +48,27 @@ public final class ReferenceStreamStore implements StreamStore {
         Objects.requireNonNull(url, "url");
         Objects.requireNonNull(config, "config");
 
+        Instant now = clock.instant();
         StreamState s = streams.compute(url, (u, existing) -> {
-            if (existing != null) return existing;
-            return StreamState.createNew(config, codecRegistry, offsetGenerator, clock);
+            if (existing == null) return StreamState.createNew(config, codecRegistry, offsetGenerator, clock, now);
+            if (existing.isExpired(now)) return StreamState.createNew(config, codecRegistry, offsetGenerator, clock, now);
+            return existing;
         });
 
-        return s.createOutcomeFor(config, initialBody);
+        return s.createOutcomeFor(config, initialBody, now);
     }
 
     @Override
     public AppendOutcome append(URI url, String contentType, String streamSeq, InputStream body) throws Exception {
         StreamState s = streams.get(url);
         if (s == null) return new AppendOutcome(AppendOutcome.Status.NOT_FOUND, null, "stream not found");
+        Instant now = clock.instant();
+        if (s.isExpired(now)) {
+            streams.remove(url, s);
+            return new AppendOutcome(AppendOutcome.Status.NOT_FOUND, null, "stream not found");
+        }
         if (contentType == null || contentType.isBlank()) return new AppendOutcome(AppendOutcome.Status.BAD_REQUEST, null, "missing Content-Type");
-        if (!s.meta.config().contentType().equals(contentType)) {
+        if (!normalizeContentType(s.meta.config().contentType()).equals(normalizeContentType(contentType))) {
             return new AppendOutcome(AppendOutcome.Status.CONFLICT, null, "content-type mismatch");
         }
         if (body == null) return new AppendOutcome(AppendOutcome.Status.BAD_REQUEST, null, "empty body");
@@ -76,13 +83,24 @@ public final class ReferenceStreamStore implements StreamStore {
     @Override
     public Optional<StreamMetadata> head(URI url) {
         StreamState s = streams.get(url);
-        return s == null ? Optional.empty() : Optional.of(s.snapshotMeta());
+        if (s == null) return Optional.empty();
+        Instant now = clock.instant();
+        if (s.isExpired(now)) {
+            streams.remove(url, s);
+            return Optional.empty();
+        }
+        return Optional.of(s.snapshotMeta(now));
     }
 
     @Override
     public ReadOutcome read(URI url, Offset startOffset, int maxBytesOrMessages) throws Exception {
         StreamState s = streams.get(url);
         if (s == null) return new ReadOutcome(ReadOutcome.Status.NOT_FOUND, null, null, null, false, null, null);
+        Instant now = clock.instant();
+        if (s.isExpired(now)) {
+            streams.remove(url, s);
+            return new ReadOutcome(ReadOutcome.Status.NOT_FOUND, null, null, null, false, null, null);
+        }
 
         int limit = maxBytesOrMessages <= 0 ? (s.isJson() ? DEFAULT_MAX_MESSAGES : DEFAULT_MAX_BYTES) : maxBytesOrMessages;
         return s.read(startOffset, limit);
@@ -91,7 +109,13 @@ public final class ReferenceStreamStore implements StreamStore {
     @Override
     public boolean await(URI url, Offset startOffset, Duration timeout) throws Exception {
         StreamState s = streams.get(url);
-        return s != null && s.await(startOffset, timeout);
+        if (s == null) return false;
+        Instant now = clock.instant();
+        if (s.isExpired(now)) {
+            streams.remove(url, s);
+            return false;
+        }
+        return s.await(startOffset, timeout);
     }
 
     private static StreamCodecRegistry defaultRegistry() {
@@ -100,9 +124,19 @@ public final class ReferenceStreamStore implements StreamStore {
         for (StreamCodecProvider provider : loader) {
             codecs.addAll(provider.codecs());
         }
-        return contentType -> codecs.stream()
-                .filter(codec -> codec.contentType().equalsIgnoreCase(contentType))
-                .findFirst();
+        return contentType -> {
+            String normalized = normalizeContentType(contentType);
+            return codecs.stream()
+                    .filter(codec -> normalizeContentType(codec.contentType()).equals(normalized))
+                    .findFirst();
+        };
+    }
+
+    private static String normalizeContentType(String contentType) {
+        if (contentType == null) return "";
+        int semi = contentType.indexOf(';');
+        String base = semi >= 0 ? contentType.substring(0, semi) : contentType;
+        return base.trim().toLowerCase(java.util.Locale.ROOT);
     }
 
     private static final class StreamState {
@@ -114,6 +148,7 @@ public final class ReferenceStreamStore implements StreamStore {
         private final StreamCodec.State state;
         private final OffsetGenerator offsetGenerator;
         private final Clock clock;
+        private final Instant expiresAt;
         private Offset nextOffset;
         private String lastSeq;
         private boolean createdOnce;
@@ -124,7 +159,8 @@ public final class ReferenceStreamStore implements StreamStore {
                 StreamCodec.State state,
                 Offset nextOffset,
                 OffsetGenerator offsetGenerator,
-                Clock clock
+                Clock clock,
+                Instant expiresAt
         ) {
             this.meta = meta;
             this.codec = codec;
@@ -132,17 +168,19 @@ public final class ReferenceStreamStore implements StreamStore {
             this.nextOffset = nextOffset;
             this.offsetGenerator = offsetGenerator;
             this.clock = clock;
+            this.expiresAt = expiresAt;
         }
 
         static StreamState createNew(
                 StreamConfig config,
                 StreamCodecRegistry codecRegistry,
                 OffsetGenerator offsetGenerator,
-                Clock clock
+                Clock clock,
+                Instant now
         ) {
-            String ct = config.contentType();
+            String ct = normalizeContentType(config.contentType());
             StreamCodec codec;
-            if ("application/json".equalsIgnoreCase(ct)) {
+            if ("application/json".equals(ct)) {
                 codec = codecRegistry.find(ct).orElseThrow(() ->
                         new IllegalArgumentException("application/json requires an installed JSON codec module"));
             } else {
@@ -150,22 +188,31 @@ public final class ReferenceStreamStore implements StreamStore {
             }
             StreamCodec.State st = codec.createEmpty();
             Offset next = Offset.beginning();
+            Instant expiresAt = resolveExpiresAt(config, now);
             StreamMetadata meta = new StreamMetadata(UUID.randomUUID().toString().replace("-", ""), config, next, null, config.expiresAt().orElse(null));
-            return new StreamState(meta, codec, st, next, offsetGenerator, clock);
+            return new StreamState(meta, codec, st, next, offsetGenerator, clock, expiresAt);
         }
 
         boolean isJson() {
-            return "application/json".equalsIgnoreCase(meta.config().contentType());
+            return "application/json".equals(normalizeContentType(meta.config().contentType()));
         }
 
-        StreamMetadata snapshotMeta() {
-            Long ttlSecondsRemaining = calculateTtlRemaining(meta.expiresAt(), clock.instant());
-            return new StreamMetadata(meta.internalStreamId(), meta.config(), nextOffset, ttlSecondsRemaining, meta.expiresAt().orElse(null));
+        StreamMetadata snapshotMeta(Instant now) {
+            Long ttlSecondsRemaining = null;
+            if (meta.config().ttlSeconds().isPresent()) {
+                ttlSecondsRemaining = calculateTtlRemaining(expiresAt, now);
+            }
+            Instant expiresAtHeader = meta.config().expiresAt().orElse(null);
+            return new StreamMetadata(meta.internalStreamId(), meta.config(), nextOffset, ttlSecondsRemaining, expiresAtHeader);
         }
 
-        CreateOutcome createOutcomeFor(StreamConfig requested, InputStream initialBody) throws Exception {
+        boolean isExpired(Instant now) {
+            return expiresAt != null && !expiresAt.isAfter(now);
+        }
+
+        CreateOutcome createOutcomeFor(StreamConfig requested, InputStream initialBody, Instant now) throws Exception {
             if (!sameConfig(meta.config(), requested)) {
-                return new CreateOutcome(CreateOutcome.Status.EXISTS_CONFLICT, snapshotMeta(), nextOffset);
+                return new CreateOutcome(CreateOutcome.Status.EXISTS_CONFLICT, snapshotMeta(now), nextOffset);
             }
 
             if (codec.size(state) == 0 && initialBody != null) {
@@ -176,7 +223,7 @@ public final class ReferenceStreamStore implements StreamStore {
 
             boolean first = !createdOnce;
             createdOnce = true;
-            return new CreateOutcome(first ? CreateOutcome.Status.CREATED : CreateOutcome.Status.EXISTS_MATCH, snapshotMeta(), nextOffset);
+            return new CreateOutcome(first ? CreateOutcome.Status.CREATED : CreateOutcome.Status.EXISTS_MATCH, snapshotMeta(now), nextOffset);
         }
 
         AppendOutcome append(String streamSeq, InputStream body) throws Exception {
@@ -204,8 +251,8 @@ public final class ReferenceStreamStore implements StreamStore {
         }
 
         ReadOutcome read(Offset startOffset, int limit) throws Exception {
-            if (isExpired(meta.expiresAt(), clock.instant())) {
-                return new ReadOutcome(ReadOutcome.Status.GONE, null, null, null, false, null, null);
+            if (isExpired(clock.instant())) {
+                return new ReadOutcome(ReadOutcome.Status.NOT_FOUND, null, null, null, false, null, null);
             }
 
             long pos = decodeStart(startOffset);
@@ -242,7 +289,7 @@ public final class ReferenceStreamStore implements StreamStore {
         }
 
         private static boolean sameConfig(StreamConfig a, StreamConfig b) {
-            return a.contentType().equals(b.contentType())
+            return normalizeContentType(a.contentType()).equals(normalizeContentType(b.contentType()))
                     && a.ttlSeconds().equals(b.ttlSeconds())
                     && a.expiresAt().equals(b.expiresAt());
         }
@@ -257,15 +304,18 @@ public final class ReferenceStreamStore implements StreamStore {
             }
         }
 
-        private static boolean isExpired(Optional<Instant> expiresAt, Instant now) {
-            return expiresAt.isPresent() && expiresAt.get().isBefore(now);
+        private static Instant resolveExpiresAt(StreamConfig config, Instant now) {
+            Optional<Long> ttlSeconds = config.ttlSeconds();
+            if (ttlSeconds.isPresent()) {
+                return now.plusSeconds(ttlSeconds.get());
+            }
+            return config.expiresAt().orElse(null);
         }
 
-        private static Long calculateTtlRemaining(Optional<Instant> expiresAt, Instant now) {
-            if (expiresAt.isEmpty()) return null;
-            Instant expiry = expiresAt.get();
-            if (expiry.isBefore(now)) return 0L;
-            return Duration.between(now, expiry).getSeconds();
+        private static Long calculateTtlRemaining(Instant expiresAt, Instant now) {
+            if (expiresAt == null) return null;
+            long seconds = Duration.between(now, expiresAt).getSeconds();
+            return Math.max(seconds, 0L);
         }
     }
 
