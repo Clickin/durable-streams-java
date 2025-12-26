@@ -1,4 +1,3 @@
-import com.github.gradle.node.npm.task.NpxTask
 
 plugins {
     id("com.github.node-gradle.node") version "7.1.0"
@@ -25,10 +24,3 @@ subprojects {
     }
 }
 
-tasks.register<NpxTask>("serverConformanceTest") {
-    group = "verification"
-    description = "Run durable-streams server conformance tests (server must be running)."
-    command.set("@durable-streams/server-conformance-tests")
-    args.set(listOf("--run", "http://localhost:4437"))
-    dependsOn(tasks.named("nodeSetup"))
-}

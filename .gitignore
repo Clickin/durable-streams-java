@@ -1,0 +1,11 @@
+.gradle
+.gradle\*
+build
+_upstream
+.kotlin
+.project
+.settings
+
+
+node_modules
+temp_import.txt

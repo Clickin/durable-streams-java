@@ -1,12 +1,6 @@
-plugins {
-    `java-library`
-}
+plugins { `java-library` }
 
-java {
-    toolchain {
-        languageVersion.set(JavaLanguageVersion.of(17))
-    }
-}
+java { toolchain { languageVersion.set(JavaLanguageVersion.of(17)) } }
 
 dependencies {
     api(project(":durable-streams-spring-webflux"))
@@ -15,6 +9,4 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-configuration-processor:3.4.1")
 }
 
-tasks.withType<JavaCompile>().configureEach {
-    options.release.set(17)
-}
+tasks.withType<JavaCompile>().configureEach { options.release.set(17) }
