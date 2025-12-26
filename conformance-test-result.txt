@@ -1,0 +1,582 @@
+ RUN  v4.0.16 G:/programming/durable-streams-java/conformance-node
+
+ ✓ conformance.test.mjs > Basic Stream Operations > should create a stream 75ms
+ ✓ conformance.test.mjs > Basic Stream Operations > should allow idempotent create with same config 7ms
+ ✓ conformance.test.mjs > Basic Stream Operations > should reject create with different config (409) 6ms
+ ✓ conformance.test.mjs > Basic Stream Operations > should delete a stream 6ms
+ ✓ conformance.test.mjs > Basic Stream Operations > should properly isolate recreated stream after delete 20ms
+ ✓ conformance.test.mjs > Append Operations > should append string data 7ms
+ ✓ conformance.test.mjs > Append Operations > should append multiple chunks 7ms
+ ✓ conformance.test.mjs > Append Operations > should enforce sequence ordering with seq 6ms
+ ✓ conformance.test.mjs > Read Operations > should read empty stream 3ms
+ ✓ conformance.test.mjs > Read Operations > should read stream with data 5ms
+ ✓ conformance.test.mjs > Read Operations > should read from offset 7ms
+ ✓ conformance.test.mjs > Long-Poll Operations > should wait for new data with long-poll 519ms
+ ✓ conformance.test.mjs > Long-Poll Operations > should return immediately if data already exists 8ms
+ ✓ conformance.test.mjs > HTTP Protocol > should return correct headers on PUT 2ms
+ ✓ conformance.test.mjs > HTTP Protocol > should return 200 on idempotent PUT with same config 3ms
+ ✓ conformance.test.mjs > HTTP Protocol > should return 409 on PUT with different config 4ms
+ ✓ conformance.test.mjs > HTTP Protocol > should return correct headers on POST 4ms
+ ✓ conformance.test.mjs > HTTP Protocol > should return 404 on POST to non-existent stream 2ms
+ ✓ conformance.test.mjs > HTTP Protocol > should return 409 on content-type mismatch 3ms
+ ✓ conformance.test.mjs > HTTP Protocol > should return correct headers on GET 4ms
+ ✓ conformance.test.mjs > HTTP Protocol > should return empty body with up-to-date for empty stream 3ms
+ ✓ conformance.test.mjs > HTTP Protocol > should read from offset 10ms
+ ✓ conformance.test.mjs > HTTP Protocol > should return 404 on DELETE non-existent stream 1ms
+ ✓ conformance.test.mjs > HTTP Protocol > should return 204 on successful DELETE 3ms
+ ✓ conformance.test.mjs > HTTP Protocol > should enforce sequence ordering 4ms
+ ✓ conformance.test.mjs > HTTP Protocol > should enforce lexicographic seq ordering ("2" then "10" rejects) 3ms
+ ✓ conformance.test.mjs > HTTP Protocol > should allow lexicographic seq ordering ("09" then "10" succeeds) 4ms
+ ✓ conformance.test.mjs > HTTP Protocol > should reject duplicate seq values 3ms
+ ✓ conformance.test.mjs > TTL and Expiry Validation > should reject both TTL and Expires-At (400) 4ms
+ ✓ conformance.test.mjs > TTL and Expiry Validation > should reject invalid TTL (non-integer) 1ms
+ ✓ conformance.test.mjs > TTL and Expiry Validation > should reject negative TTL 1ms
+ ✓ conformance.test.mjs > TTL and Expiry Validation > should accept valid TTL 1ms
+ ✓ conformance.test.mjs > TTL and Expiry Validation > should accept valid Expires-At 1ms
+ ✓ conformance.test.mjs > Case-Insensitivity > should treat content-type case-insensitively 2ms
+ × conformance.test.mjs > Case-Insensitivity > should allow idempotent create with different case content-type 3ms
+   → expected 500 to be 201 // Object.is equality
+ ✓ conformance.test.mjs > Case-Insensitivity > should accept headers with different casing 2ms
+ ✓ conformance.test.mjs > Content-Type Validation > should enforce content-type match on append 2ms
+ × conformance.test.mjs > Content-Type Validation > should allow append with matching content-type 3ms
+   → expected [ 200, 204 ] to include 404
+ × conformance.test.mjs > Content-Type Validation > should return stream content-type on GET 2ms
+   → expected 404 to be 200 // Object.is equality
+ ✓ conformance.test.mjs > HEAD Metadata > should return metadata without body 3ms
+ ✓ conformance.test.mjs > HEAD Metadata > should return 404 for non-existent stream 1ms
+ ✓ conformance.test.mjs > HEAD Metadata > should return tail offset 9ms
+ ✓ conformance.test.mjs > Offset Validation and Resumability > should accept -1 as sentinel for stream beginning 5ms
+ ✓ conformance.test.mjs > Offset Validation and Resumability > should return same data for offset=-1 and no offset 4ms
+ × conformance.test.mjs > Offset Validation and Resumability > should reject malformed offset (contains comma) 3ms
+   → expected 500 to be 400 // Object.is equality
+ ✓ conformance.test.mjs > Offset Validation and Resumability > should reject offset with spaces 3ms
+ ✓ conformance.test.mjs > Offset Validation and Resumability > should support resumable reads (no duplicate data) 7ms
+ ✓ conformance.test.mjs > Offset Validation and Resumability > should return empty response when reading from tail offset 4ms
+ ✓ conformance.test.mjs > Protocol Edge Cases > should reject empty POST body with 400 2ms
+ ✓ conformance.test.mjs > Protocol Edge Cases > should handle PUT with initial body correctly 3ms
+ ✓ conformance.test.mjs > Protocol Edge Cases > should preserve data immutability by position 7ms
+ ✓ conformance.test.mjs > Protocol Edge Cases > should generate unique, monotonically increasing offsets 6ms
+ × conformance.test.mjs > Protocol Edge Cases > should reject empty offset parameter 3ms
+   → expected 200 to be 400 // Object.is equality
+ × conformance.test.mjs > Protocol Edge Cases > should reject multiple offset parameters 2ms
+   → expected 200 to be 400 // Object.is equality
+ ✓ conformance.test.mjs > Protocol Edge Cases > should enforce case-sensitive seq ordering 3ms
+ ✓ conformance.test.mjs > Protocol Edge Cases > should handle binary data with integrity 3ms
+ ✓ conformance.test.mjs > Protocol Edge Cases > should return Location header on 201 1ms
+ ✓ conformance.test.mjs > Protocol Edge Cases > should reject missing Content-Type on POST 2ms
+ ✓ conformance.test.mjs > Protocol Edge Cases > should accept PUT without Content-Type (use default) 1ms
+ ✓ conformance.test.mjs > Protocol Edge Cases > should ignore unknown query parameters 2ms
+ ✓ conformance.test.mjs > Long-Poll Edge Cases > should require offset parameter for long-poll 2ms
+ ✓ conformance.test.mjs > Long-Poll Edge Cases > should generate Stream-Cursor header on long-poll responses 2ms
+ ✓ conformance.test.mjs > Long-Poll Edge Cases > should echo cursor and handle collision with jitter 4ms
+ ✓ conformance.test.mjs > Long-Poll Edge Cases > should return Stream-Cursor, Stream-Up-To-Date and Stream-Next-Offset on 204 timeout 5007ms
+ ✓ conformance.test.mjs > TTL and Expiry Edge Cases > should reject TTL with leading zeros 4ms
+ ✓ conformance.test.mjs > TTL and Expiry Edge Cases > should reject TTL with plus sign 3ms
+ ✓ conformance.test.mjs > TTL and Expiry Edge Cases > should reject TTL with float value 3ms
+ ✓ conformance.test.mjs > TTL and Expiry Edge Cases > should reject TTL with scientific notation 3ms
+ ✓ conformance.test.mjs > TTL and Expiry Edge Cases > should reject invalid Expires-At timestamp 3ms
+ ✓ conformance.test.mjs > TTL and Expiry Edge Cases > should accept Expires-At with Z timezone 3ms
+ ✓ conformance.test.mjs > TTL and Expiry Edge Cases > should accept Expires-At with timezone offset 3ms
+ ✓ conformance.test.mjs > TTL and Expiry Edge Cases > should handle idempotent PUT with same TTL 6ms
+ ✓ conformance.test.mjs > TTL and Expiry Edge Cases > should reject idempotent PUT with different TTL 5ms
+ ✓ conformance.test.mjs > HEAD Metadata Edge Cases > should return TTL metadata if configured 4ms
+ ✓ conformance.test.mjs > HEAD Metadata Edge Cases > should return Expires-At metadata if configured 5ms
+ × conformance.test.mjs > TTL Expiration Behavior > should return 404 on POST append after TTL expires 1520ms
+   → expected 204 to be 404 // Object.is equality
+ × conformance.test.mjs > TTL Expiration Behavior > should return 404 on GET after TTL expires 1521ms
+   → expected 200 to be 404 // Object.is equality
+ × conformance.test.mjs > TTL Expiration Behavior > should return 404 on HEAD after Expires-At passes 1522ms
+   → expected 200 to be 404 // Object.is equality
+ × conformance.test.mjs > TTL Expiration Behavior > should return 404 on HEAD after TTL expires 1522ms
+   → expected 200 to be 404 // Object.is equality
+ × conformance.test.mjs > TTL Expiration Behavior > should return 404 on GET after Expires-At passes 1523ms
+   → expected 200 to be 404 // Object.is equality
+ × conformance.test.mjs > TTL Expiration Behavior > should allow recreating stream after TTL expires 1511ms
+   → expected 409 to be 201 // Object.is equality
+ × conformance.test.mjs > TTL Expiration Behavior > should return 404 on POST append after Expires-At passes 1513ms
+   → expected 204 to be 404 // Object.is equality
+ ✓ conformance.test.mjs > Caching and ETag > should generate ETag on GET responses 3ms
+ ✓ conformance.test.mjs > Caching and ETag > should return 304 Not Modified for matching If-None-Match 5ms
+ ✓ conformance.test.mjs > Caching and ETag > should return 200 for non-matching If-None-Match 3ms
+ ✓ conformance.test.mjs > Caching and ETag > should return new ETag after data changes 8ms
+ ✓ conformance.test.mjs > Chunking and Large Payloads > should handle chunk-size pagination correctly 532ms
+ ✓ conformance.test.mjs > Chunking and Large Payloads > should handle large payload appropriately 44ms
+ ✓ conformance.test.mjs > Read-Your-Writes Consistency > should immediately read message after append 3ms
+ ✓ conformance.test.mjs > Read-Your-Writes Consistency > should immediately read multiple appends 6ms
+ ✓ conformance.test.mjs > Read-Your-Writes Consistency > should serve offset-based reads immediately after append 5ms
+ ✓ conformance.test.mjs > SSE Mode > should return text/event-stream content-type for SSE requests 5ms
+ × conformance.test.mjs > SSE Mode > should accept live=sse query parameter for application/json 3ms
+   → expected 404 to be 200 // Object.is equality
+ ✓ conformance.test.mjs > SSE Mode > should require offset parameter for SSE mode 2ms
+ ✓ conformance.test.mjs > SSE Mode > client should reject SSE mode for incompatible content types 2ms
+ ✓ conformance.test.mjs > SSE Mode > should stream data events via SSE 4ms
+ ✓ conformance.test.mjs > SSE Mode > should send control events with offset 4ms
+ ✓ conformance.test.mjs > SSE Mode > should generate streamCursor in SSE control events 4ms
+ × conformance.test.mjs > SSE Mode > should handle cursor collision with jitter in SSE mode 5ms
+   → expected 1916396 to be greater than 1916396
+ × conformance.test.mjs > SSE Mode > should wrap JSON data in arrays for SSE and produce valid JSON 3ms
+   → expected 404 to be 200 // Object.is equality
+ × conformance.test.mjs > SSE Mode > should handle SSE for empty stream with correct offset 2016ms
+   → expected '' to contain 'event: control'
+ × conformance.test.mjs > SSE Mode > should send upToDate flag in SSE control events when caught up 2014ms
+   → expected undefined to be defined
+ × conformance.test.mjs > SSE Mode > should have correct SSE headers (no Content-Length, proper Cache-Control) 9ms
+   → expected 'no-store' to contain 'no-cache'
+ ✓ conformance.test.mjs > SSE Mode > should handle newlines in text/plain payloads 4ms
+ ✓ conformance.test.mjs > SSE Mode > should generate unique, monotonically increasing offsets in SSE mode 9ms
+ ✓ conformance.test.mjs > SSE Mode > should support reconnection with last known offset 10ms
+ × conformance.test.mjs > JSON Mode > should allow PUT with empty array body (creates empty stream) 2ms
+   → expected 500 to be 201 // Object.is equality
+ × conformance.test.mjs > JSON Mode > should reject POST with empty array body 3ms
+   → expected 404 to be 400 // Object.is equality
+ × conformance.test.mjs > JSON Mode > should handle content-type with charset parameter 4ms
+   → expected false to be true // Object.is equality
+ × conformance.test.mjs > JSON Mode > should wrap single JSON value in array 5000ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ × conformance.test.mjs > JSON Mode > should store arrays as single messages 5016ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ × conformance.test.mjs > JSON Mode > should concatenate multiple appends into single array 5010ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ × conformance.test.mjs > JSON Mode > should handle mixed single values and arrays 5013ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ × conformance.test.mjs > JSON Mode > should reject invalid JSON with 400 6ms
+   → expected 404 to be 400 // Object.is equality
+ × conformance.test.mjs > JSON Mode > should handle various JSON value types 5016ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ × conformance.test.mjs > JSON Mode > should preserve JSON structure and nesting 5014ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ × conformance.test.mjs > JSON Mode > should work with client json() iterator 5005ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ × conformance.test.mjs > JSON Mode > should reject empty JSON arrays with 400 8ms
+   → expected 404 to be 400 // Object.is equality
+ × conformance.test.mjs > JSON Mode > should store nested arrays as single messages 5002ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ × conformance.test.mjs > JSON Mode > should store arrays as values when double-wrapped 5014ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ × conformance.test.mjs > JSON Mode > should store primitive arrays as single messages 5009ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ × conformance.test.mjs > JSON Mode > should handle mixed batching - single values, arrays, and nested arrays 5001ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ✓ conformance.test.mjs > Property-Based Tests (fast-check) > Byte-Exactness Property > arbitrary byte sequences are preserved exactly 185ms
+ ✓ conformance.test.mjs > Property-Based Tests (fast-check) > Byte-Exactness Property > single byte values cover full range (0-255) 175ms
+ ✓ conformance.test.mjs > Property-Based Tests (fast-check) > Operation Sequence Properties > random operation sequences maintain stream invariants 202ms
+ ✓ conformance.test.mjs > Property-Based Tests (fast-check) > Operation Sequence Properties > offsets are always monotonically increasing 188ms
+ ✓ conformance.test.mjs > Property-Based Tests (fast-check) > Operation Sequence Properties > read-your-writes: data is immediately visible after append 87ms
+ ✓ conformance.test.mjs > Property-Based Tests (fast-check) > Immutability Properties > data at offset never changes after additional appends 119ms
+ × conformance.test.mjs > Property-Based Tests (fast-check) > Offset Validation Properties > should reject offsets with invalid characters 14ms
+   → Property failed after 2 tests
+{ seed: -1171748601, path: "1:0:0", endOnFailure: true }
+Counterexample: [","]
+Shrunk 2 time(s)
+
+Hint: Enable verbose mode in order to have the list of all failing values encountered during the run
+ ✓ conformance.test.mjs > Property-Based Tests (fast-check) > Sequence Ordering Properties > lexicographically ordered seq values are accepted 151ms
+ ✓ conformance.test.mjs > Property-Based Tests (fast-check) > Sequence Ordering Properties > out-of-order seq values are rejected 85ms
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯ Failed Tests 36 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  conformance.test.mjs > Case-Insensitivity > should allow idempotent create with different case content-type
+AssertionError: expected 500 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 500
+
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:615:29
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/36]⎯
+
+ FAIL  conformance.test.mjs > Content-Type Validation > should allow append with matching content-type
+AssertionError: expected [ 200, 204 ] to include 404
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:664:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/36]⎯
+
+ FAIL  conformance.test.mjs > Content-Type Validation > should return stream content-type on GET
+AssertionError: expected 404 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 404
+
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:674:28
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/36]⎯
+
+ FAIL  conformance.test.mjs > Offset Validation and Resumability > should reject malformed offset (contains comma)
+AssertionError: expected 500 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 500
+
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:754:28
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/36]⎯
+
+ FAIL  conformance.test.mjs > Protocol Edge Cases > should reject empty offset parameter
+AssertionError: expected 200 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 200
+
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:889:28
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/36]⎯
+
+ FAIL  conformance.test.mjs > Protocol Edge Cases > should reject multiple offset parameters
+AssertionError: expected 200 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 200
+
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:899:28
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/36]⎯
+
+ FAIL  conformance.test.mjs > TTL Expiration Behavior > should return 404 on HEAD after TTL expires
+AssertionError: expected 200 to be 404 // Object.is equality
+
+- Expected
++ Received
+
+- 404
++ 200
+
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:1230:29
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/36]⎯
+
+ FAIL  conformance.test.mjs > TTL Expiration Behavior > should return 404 on GET after TTL expires
+AssertionError: expected 200 to be 404 // Object.is equality
+
+- Expected
++ Received
+
+- 404
++ 200
+
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:1247:28
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/36]⎯
+
+ FAIL  conformance.test.mjs > TTL Expiration Behavior > should return 404 on POST append after TTL expires
+AssertionError: expected 204 to be 404 // Object.is equality
+
+- Expected
++ Received
+
+- 404
++ 204
+
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:1271:29
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/36]⎯
+
+ FAIL  conformance.test.mjs > TTL Expiration Behavior > should return 404 on HEAD after Expires-At passes
+AssertionError: expected 200 to be 404 // Object.is equality
+
+- Expected
++ Received
+
+- 404
++ 200
+
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:1288:29
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/36]⎯
+
+ FAIL  conformance.test.mjs > TTL Expiration Behavior > should return 404 on GET after Expires-At passes
+AssertionError: expected 200 to be 404 // Object.is equality
+
+- Expected
++ Received
+
+- 404
++ 200
+
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:1306:28
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/36]⎯
+
+ FAIL  conformance.test.mjs > TTL Expiration Behavior > should return 404 on POST append after Expires-At passes
+AssertionError: expected 204 to be 404 // Object.is equality
+
+- Expected
++ Received
+
+- 404
++ 204
+
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:1331:29
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/36]⎯
+
+ FAIL  conformance.test.mjs > TTL Expiration Behavior > should allow recreating stream after TTL expires
+AssertionError: expected 409 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 409
+
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:1353:36
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/36]⎯
+
+ FAIL  conformance.test.mjs > SSE Mode > should accept live=sse query parameter for application/json
+AssertionError: expected 404 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 404
+
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:1577:28
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/36]⎯
+
+ FAIL  conformance.test.mjs > SSE Mode > should handle cursor collision with jitter in SSE mode
+AssertionError: expected 1916396 to be greater than 1916396
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:1661:34
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/36]⎯
+
+ FAIL  conformance.test.mjs > SSE Mode > should wrap JSON data in arrays for SSE and produce valid JSON
+AssertionError: expected 404 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 404
+
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:1674:28
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/36]⎯
+
+ FAIL  conformance.test.mjs > SSE Mode > should handle SSE for empty stream with correct offset
+AssertionError: expected '' to contain 'event: control'
+
+- Expected
++ Received
+
+- event: control
+
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:1697:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/36]⎯
+
+ FAIL  conformance.test.mjs > SSE Mode > should send upToDate flag in SSE control events when caught up
+AssertionError: expected undefined to be defined
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:1714:24
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/36]⎯
+
+ FAIL  conformance.test.mjs > SSE Mode > should have correct SSE headers (no Content-Length, proper Cache-Control)
+AssertionError: expected 'no-store' to contain 'no-cache'
+
+Expected: "no-cache"
+Received: "no-store"
+
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:1731:25
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/36]⎯
+
+ FAIL  conformance.test.mjs > JSON Mode > should allow PUT with empty array body (creates empty stream)
+AssertionError: expected 500 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 500
+
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:1808:28
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/36]⎯
+
+ FAIL  conformance.test.mjs > JSON Mode > should reject POST with empty array body
+AssertionError: expected 404 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 404
+
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:1825:28
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/36]⎯
+
+ FAIL  conformance.test.mjs > JSON Mode > should handle content-type with charset parameter
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:1840:32
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/36]⎯
+
+ FAIL  conformance.test.mjs > JSON Mode > should wrap single JSON value in array
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:1843:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/36]⎯
+
+ FAIL  conformance.test.mjs > JSON Mode > should store arrays as single messages
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:1855:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/36]⎯
+
+ FAIL  conformance.test.mjs > JSON Mode > should concatenate multiple appends into single array
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:1875:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/36]⎯
+
+ FAIL  conformance.test.mjs > JSON Mode > should handle mixed single values and arrays
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:1893:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/36]⎯
+
+ FAIL  conformance.test.mjs > JSON Mode > should reject invalid JSON with 400
+AssertionError: expected 404 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 404
+
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:1933:28
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[27/36]⎯
+
+ FAIL  conformance.test.mjs > JSON Mode > should handle various JSON value types
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:1936:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[28/36]⎯
+
+ FAIL  conformance.test.mjs > JSON Mode > should preserve JSON structure and nesting
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:1967:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[29/36]⎯
+
+ FAIL  conformance.test.mjs > JSON Mode > should work with client json() iterator
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:1992:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[30/36]⎯
+
+ FAIL  conformance.test.mjs > JSON Mode > should reject empty JSON arrays with 400
+AssertionError: expected 404 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 404
+
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:2020:28
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[31/36]⎯
+
+ FAIL  conformance.test.mjs > JSON Mode > should store nested arrays as single messages
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:2023:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[32/36]⎯
+
+ FAIL  conformance.test.mjs > JSON Mode > should store arrays as values when double-wrapped
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:2034:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[33/36]⎯
+
+ FAIL  conformance.test.mjs > JSON Mode > should store primitive arrays as single messages
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:2054:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[34/36]⎯
+
+ FAIL  conformance.test.mjs > JSON Mode > should handle mixed batching - single values, arrays, and nested arrays
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:2082:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[35/36]⎯
+
+ FAIL  conformance.test.mjs > Property-Based Tests (fast-check) > Offset Validation Properties > should reject offsets with invalid characters
+Error: Property failed after 2 tests
+{ seed: -1171748601, path: "1:0:0", endOnFailure: true }
+Counterexample: [","]
+Shrunk 2 time(s)
+
+Hint: Enable verbose mode in order to have the list of all failing values encountered during the run
+ ❯ buildError node_modules/fast-check/lib/check/runner/utils/RunDetailsFormatter.js:156:19
+ ❯ asyncThrowIfFailed node_modules/fast-check/lib/check/runner/utils/RunDetailsFormatter.js:170:11
+
+Caused by: AssertionError: expected 500 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 500
+
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:2401:31
+ ❯ AsyncProperty.run node_modules/fast-check/lib/check/property/AsyncProperty.generic.js:43:28
+ ❯ asyncRunIt node_modules/fast-check/lib/check/runner/Runner.js:24:21
+ ❯ node_modules/@durable-streams/server-conformance-tests/dist/src-DcbQ_SIQ.js:2375:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[36/36]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  36 failed | 95 passed (131)
+   Start at  23:18:12
+   Duration  70.23s (transform 12ms, setup 0ms, import 145ms, tests 69.95s, environment 0ms)
