@@ -79,7 +79,12 @@ public final class JacksonJsonStreamCodec implements StreamCodec {
             if (t == null) throw new IllegalArgumentException("invalid json");
         }
 
-        JsonNode node = MAPPER.readTree(raw);
+        JsonNode node;
+        try {
+            node = MAPPER.readTree(raw);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("invalid json", e);
+        }
         if (node == null) throw new IllegalArgumentException("invalid json");
 
         StateImpl s = (StateImpl) state;

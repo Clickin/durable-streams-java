@@ -1,4 +1,16 @@
+import org.gradle.jvm.toolchain.JvmVendorSpec
+
 rootProject.name = "durable-streams-java"
+
+toolchainManagement {
+  jvm {
+    javaRepositories {
+      repository("adoptium") {
+        vendor = JvmVendorSpec.ADOPTIUM
+      }
+    }
+  }
+}
 
 include(
   "durable-streams-core",
@@ -12,6 +24,8 @@ include(
   "durable-streams-server-core",
   "durable-streams-spring-webflux",
   "durable-streams-spring-webmvc",
+  "durable-streams-spring-webflux-starter",
+  "durable-streams-spring-webmvc-starter",
   "durable-streams-spring-boot-starter",
   "durable-streams-micronaut-server",
   "durable-streams-micronaut-client",

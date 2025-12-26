@@ -1,15 +1,31 @@
 package io.durablestreams.micronaut.server;
 
 import io.durablestreams.reactive.FlowInterop;
-import io.durablestreams.server.core.*;
-import io.micronaut.http.*;
-import io.micronaut.http.annotation.*;
+import io.durablestreams.server.core.DurableStreamsHandler;
+import io.durablestreams.server.core.HttpMethod;
+import io.durablestreams.server.core.ResponseBody;
+import io.durablestreams.server.core.ServerRequest;
+import io.durablestreams.server.core.ServerResponse;
+import io.durablestreams.server.core.SseFrame;
+import io.micronaut.http.HttpRequest;
+import io.micronaut.http.HttpResponse;
+import io.micronaut.http.HttpStatus;
+import io.micronaut.http.MediaType;
+import io.micronaut.http.MutableHttpResponse;
+import io.micronaut.http.annotation.Controller;
+import io.micronaut.http.annotation.Delete;
+import io.micronaut.http.annotation.Get;
+import io.micronaut.http.annotation.Head;
+import io.micronaut.http.annotation.PathVariable;
+import io.micronaut.http.annotation.Post;
+import io.micronaut.http.annotation.Put;
 import io.micronaut.http.sse.Event;
 import org.reactivestreams.Publisher;
 
 import java.io.ByteArrayInputStream;
 import java.net.URI;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -65,7 +81,7 @@ public final class DurableStreamsMicronautController {
         return toMicronautResponse(r);
     }
 
-    private static io.durablestreams.server.core.ServerRequest toEngineRequest(HttpRequest<byte[]> req) {
+    private static ServerRequest toEngineRequest(HttpRequest<byte[]> req) {
         HttpMethod m = HttpMethod.valueOf(req.getMethodName());
         URI uri = req.getUri();
 
@@ -74,12 +90,12 @@ public final class DurableStreamsMicronautController {
 
         byte[] bytes = req.getBody().orElse(null);
         ByteArrayInputStream body = (bytes == null || bytes.length == 0) ? null : new ByteArrayInputStream(bytes);
-        return new io.durablestreams.server.core.ServerRequest(m, uri, headers, body);
+        return new ServerRequest(m, uri, headers, body);
     }
 
-    private static HttpResponse<?> toMicronautResponse(io.durablestreams.server.core.ServerResponse r) {
-        HttpResponse<?> resp = HttpResponse.status(HttpStatus.valueOf(r.status()));
-        r.headers().forEach((k, vals) -> vals.forEach(v -> resp.getHeaders().add(k, v)));
+    private static HttpResponse<?> toMicronautResponse(ServerResponse r) {
+        MutableHttpResponse<?> resp = HttpResponse.status(HttpStatus.valueOf(r.status()));
+        r.headers().forEach((k, vals) -> vals.forEach(v -> resp.header(k, v)));
 
         ResponseBody body = r.body();
         if (body instanceof ResponseBody.Empty) return resp;

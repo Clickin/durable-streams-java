@@ -23,6 +23,7 @@ final class FlowingSsePublisher implements Flow.Publisher<SseFrame> {
     private final CursorPolicy cursorPolicy;
     private final java.net.URI url;
     private Offset offset;
+    private final String clientCursor;
     private final int maxChunkSize;
     private final Duration maxDuration;
     private final Clock clock;
@@ -32,6 +33,7 @@ final class FlowingSsePublisher implements Flow.Publisher<SseFrame> {
             CursorPolicy cursorPolicy,
             java.net.URI url,
             Offset offset,
+            String clientCursor,
             int maxChunkSize,
             Duration maxDuration,
             Clock clock
@@ -40,6 +42,7 @@ final class FlowingSsePublisher implements Flow.Publisher<SseFrame> {
         this.cursorPolicy = Objects.requireNonNull(cursorPolicy, "cursorPolicy");
         this.url = Objects.requireNonNull(url, "url");
         this.offset = Objects.requireNonNull(offset, "offset");
+        this.clientCursor = clientCursor;
         this.maxChunkSize = maxChunkSize;
         this.maxDuration = maxDuration;
         this.clock = clock;
@@ -55,6 +58,7 @@ final class FlowingSsePublisher implements Flow.Publisher<SseFrame> {
         private final Flow.Subscriber<? super SseFrame> sub;
         private final AtomicBoolean cancelled = new AtomicBoolean(false);
         private volatile long demand;
+        private Offset lastControlOffset;
 
         Sub(Flow.Subscriber<? super SseFrame> sub) {
             this.sub = sub;
@@ -91,7 +95,19 @@ final class FlowingSsePublisher implements Flow.Publisher<SseFrame> {
                     byte[] body = out.body() == null ? new byte[0] : out.body();
                     boolean hasBody = body.length > 0;
 
+                    Offset nextOffset = out.nextOffset();
                     if (!hasBody && out.upToDate()) {
+                        boolean shouldEmitControl = lastControlOffset == null || !lastControlOffset.equals(nextOffset);
+                        if (shouldEmitControl) {
+                            String cursor = cursorPolicy.nextCursor(clientCursor);
+                            String controlJson = renderControlJson(nextOffset.value(), cursor, true);
+                            sub.onNext(new SseFrame("control", controlJson));
+                            demand--;
+                            lastControlOffset = nextOffset;
+                        }
+
+                        offset = nextOffset;
+
                         // Wait briefly for new data, then loop (until maxDuration)
                         boolean ready = store.await(url, offset, Duration.ofSeconds(5));
                         if (!ready) continue;
@@ -104,17 +120,31 @@ final class FlowingSsePublisher implements Flow.Publisher<SseFrame> {
                     demand--;
 
                     // Emit control event after every data event
-                    String cursor = cursorPolicy.nextCursor(null);
-                    String controlJson = "{\"streamNextOffset\":\"" + out.nextOffset().value() + "\",\"streamCursor\":\"" + cursor + "\"}";
+                    String cursor = cursorPolicy.nextCursor(clientCursor);
+                    String controlJson = renderControlJson(nextOffset.value(), cursor, out.upToDate());
                     sub.onNext(new SseFrame("control", controlJson));
                     demand--;
 
-                    offset = out.nextOffset();
+                    lastControlOffset = nextOffset;
+                    offset = nextOffset;
                 }
                 sub.onComplete();
             } catch (Throwable t) {
                 sub.onError(t);
             }
         }
+    }
+
+    private static String renderControlJson(String streamNextOffset, String streamCursor, boolean upToDate) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{\"streamNextOffset\":\"").append(streamNextOffset).append("\"");
+        if (streamCursor != null) {
+            sb.append(",\"streamCursor\":\"").append(streamCursor).append("\"");
+        }
+        if (upToDate) {
+            sb.append(",\"upToDate\":true");
+        }
+        sb.append("}");
+        return sb.toString();
     }
 }

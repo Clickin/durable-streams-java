@@ -27,7 +27,10 @@ public final class ServiceLoaderCodecRegistry implements StreamCodecRegistry {
         for (StreamCodecProvider p : loader) {
             for (StreamCodec c : p.codecs()) {
                 if (c == null || c.contentType() == null) continue;
-                map.put(c.contentType().toLowerCase(Locale.ROOT), c);
+                String normalized = normalizeContentType(c.contentType());
+                if (!normalized.isEmpty()) {
+                    map.put(normalized, c);
+                }
             }
         }
         this.byContentType = Map.copyOf(map);
@@ -39,8 +42,16 @@ public final class ServiceLoaderCodecRegistry implements StreamCodecRegistry {
 
     @Override
     public Optional<StreamCodec> find(String contentType) {
-        if (contentType == null) return Optional.empty();
-        return Optional.ofNullable(byContentType.get(contentType.toLowerCase(Locale.ROOT)));
+        String normalized = normalizeContentType(contentType);
+        if (normalized.isEmpty()) return Optional.empty();
+        return Optional.ofNullable(byContentType.get(normalized));
+    }
+
+    private static String normalizeContentType(String contentType) {
+        if (contentType == null) return "";
+        int semi = contentType.indexOf(';');
+        String base = semi >= 0 ? contentType.substring(0, semi) : contentType;
+        return base.trim().toLowerCase(Locale.ROOT);
     }
 
     StreamCodec fallbackBytes() {
