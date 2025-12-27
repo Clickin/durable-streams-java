@@ -8,27 +8,45 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.*;
 import jakarta.ws.rs.sse.OutboundSseEvent;
 import jakarta.ws.rs.sse.Sse;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-
 import java.io.ByteArrayInputStream;
 import java.net.URI;
 import java.util.*;
 
 /**
- * Quarkus REST resource adapter over {@link DurableStreamsHandler}.
+ * Reference Quarkus REST resource adapter over {@link DurableStreamsHandler}.
  *
- * <p>The base path is configurable via {@code durable-streams.base-path} property
- * (defaults to {@code /streams}). Use property expression syntax to configure:
- * <pre>
- * durable-streams.base-path=/my-streams
- * </pre>
+ * <p><strong>This resource is NOT auto-registered.</strong> It serves as a reference
+ * implementation that you can extend or copy for your application.
+ *
+ * <p>Per the Durable Streams protocol, "a stream is simply a URL" and servers have complete
+ * freedom to organize streams using any URL scheme. Create your own resource(s) at
+ * whatever paths you need.
+ *
+ * <p>Example usage - extend this class with your desired path:
+ * <pre>{@code
+ * @Path("/api/streams")
+ * @ApplicationScoped
+ * public class MyStreamResource extends DurableStreamsQuarkusResource {
+ *     // Inherits all endpoint methods
+ * }
+ * }</pre>
+ *
+ * <p>For multiple stream endpoints, create multiple resources with different handlers:
+ * <pre>{@code
+ * @Path("/users/{userId}/events")
+ * @ApplicationScoped
+ * public class UserEventsResource extends DurableStreamsQuarkusResource {
+ *     @Inject
+ *     public void setEngine(@Named("userHandler") DurableStreamsHandler handler) {
+ *         this.engine = handler;
+ *     }
+ * }
+ * }</pre>
  */
-@Path("${durable-streams.base-path:/streams}")
-@ApplicationScoped
-public final class DurableStreamsQuarkusResource {
+public class DurableStreamsQuarkusResource {
 
-    @Inject DurableStreamsHandler engine;
-    @Inject Sse sse;
+    @Inject protected DurableStreamsHandler engine;
+    @Inject protected Sse sse;
 
     @PUT
     @Path("/{path:.*}")

@@ -29,13 +29,37 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Micronaut controller adapter over {@link DurableStreamsHandler}.
+ * Reference Micronaut controller adapter over {@link DurableStreamsHandler}.
  *
- * <p>Routes all HTTP methods under the controller path. The base path is configurable via
- * {@code durable-streams.base-path} property (defaults to {@code /streams}).
+ * <p><strong>This controller is NOT auto-registered.</strong> It serves as a reference
+ * implementation that you can extend or copy for your application.
+ *
+ * <p>Per the Durable Streams protocol, "a stream is simply a URL" and servers have complete
+ * freedom to organize streams using any URL scheme. Create your own controller(s) at
+ * whatever paths you need.
+ *
+ * <p>Example usage - extend this class with your desired path:
+ * <pre>{@code
+ * @Controller("/api/streams")
+ * public class MyStreamController extends DurableStreamsMicronautController {
+ *     public MyStreamController(DurableStreamsHandler engine) {
+ *         super(engine);
+ *     }
+ * }
+ * }</pre>
+ *
+ * <p>For multiple stream endpoints, create multiple controllers with different handlers:
+ * <pre>{@code
+ * @Controller("/users/{userId}/events")
+ * public class UserEventsController extends DurableStreamsMicronautController {
+ *     @Inject
+ *     public UserEventsController(@Named("userHandler") DurableStreamsHandler handler) {
+ *         super(handler);
+ *     }
+ * }
+ * }</pre>
  */
-@Controller("${durable-streams.base-path:/streams}")
-public final class DurableStreamsMicronautController {
+public class DurableStreamsMicronautController {
 
     private final DurableStreamsHandler engine;
 
