@@ -7,6 +7,7 @@ java {
 }
 
 dependencies {
+    api(project(":durable-streams-json-spi"))
     api(project(":durable-streams-server-spi"))
     implementation("com.fasterxml.jackson.core:jackson-databind:2.18.2")
 }

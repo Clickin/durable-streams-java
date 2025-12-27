@@ -15,6 +15,7 @@ toolchainManagement {
 include(
   "durable-streams-core",
   "durable-streams-client-jdk",
+  "durable-streams-json-spi",
   "durable-streams-json-jackson",
   "durable-streams-reactive-adapters",
   "durable-streams-client-reactor",
