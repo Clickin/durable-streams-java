@@ -4,6 +4,8 @@ junit-platform = "1.10.2"
 assertj = "3.25.3"
 mockwebserver = "4.12.0"
 javalin = "6.7.0"
+apache-httpclient5 = "5.4.1"
+okhttp = "4.12.0"
 
 [libraries]
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
@@ -11,3 +13,5 @@ junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
 mockwebserver = { module = "com.squareup.okhttp3:mockwebserver", version.ref = "mockwebserver" }
 javalin = { module = "io.javalin:javalin", version.ref = "javalin" }
+apache-httpclient5 = { module = "org.apache.httpcomponents.client5:httpclient5", version.ref = "apache-httpclient5" }
+okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }

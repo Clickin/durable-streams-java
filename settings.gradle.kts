@@ -16,6 +16,8 @@ include(
   "durable-streams-core",
   "durable-streams-http-spi",
   "durable-streams-http-jdk",
+  "durable-streams-http-apache5",
+  "durable-streams-http-okhttp",
   "durable-streams-client-jdk",
   "durable-streams-json-spi",
   "durable-streams-json-jackson",
