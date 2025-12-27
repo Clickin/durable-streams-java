@@ -7,6 +7,7 @@ dependencies {
     api("io.quarkus:quarkus-rest:3.18.0")
     api("io.quarkus:quarkus-rest-jackson:3.18.0")
     api("io.smallrye.reactive:mutiny:2.7.0")
+    compileOnly(project(":durable-streams-json-jackson"))
 }
 
 tasks.withType<JavaCompile>().configureEach { options.release.set(17) }
