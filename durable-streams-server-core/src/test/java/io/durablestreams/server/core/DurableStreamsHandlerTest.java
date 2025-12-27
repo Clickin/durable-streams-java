@@ -1,7 +1,6 @@
 package io.durablestreams.server.core;
 
 import io.durablestreams.core.Protocol;
-import io.durablestreams.server.spi.CursorPolicy;
 import io.durablestreams.server.spi.RateLimiter;
 
 import org.junit.jupiter.api.Test;
@@ -144,17 +143,10 @@ class DurableStreamsHandlerTest {
         RateLimiter rejectAll = (url, clientId) ->
                 new RateLimiter.Result.Rejected(Optional.of(Duration.ofSeconds(30)));
 
-        DurableStreamsHandler handler = new DurableStreamsHandler(
-                new InMemoryStreamStore(),
-                new CursorPolicy(Clock.systemUTC()),
-                CachePolicy.defaultPrivate(),
-                Duration.ofMillis(25),
-                Duration.ofSeconds(1),
-                1024,
-                Clock.systemUTC(),
-                rejectAll,
-                DurableStreamsHandler.DEFAULT_MAX_BODY_SIZE
-        );
+        DurableStreamsHandler handler = DurableStreamsHandler.builder(new InMemoryStreamStore())
+                .longPollTimeout(Duration.ofMillis(25))
+                .rateLimiter(rejectAll)
+                .build();
 
         URI stream = URI.create("http://localhost/streams/ratelimit");
         ServerResponse resp = handler.handle(request(
@@ -172,17 +164,9 @@ class DurableStreamsHandlerTest {
     @Test
     void payloadTooLargeReturns413() {
         // Create handler with tiny max body size
-        DurableStreamsHandler handler = new DurableStreamsHandler(
-                new InMemoryStreamStore(),
-                new CursorPolicy(Clock.systemUTC()),
-                CachePolicy.defaultPrivate(),
-                Duration.ofMillis(25),
-                Duration.ofSeconds(1),
-                1024,
-                Clock.systemUTC(),
-                RateLimiter.permitAll(),
-                10 // Only allow 10 bytes
-        );
+        DurableStreamsHandler handler = DurableStreamsHandler.builder(new InMemoryStreamStore())
+                .maxBodySize(10) // Only allow 10 bytes
+                .build();
 
         URI stream = URI.create("http://localhost/streams/toolarge");
 
@@ -225,15 +209,11 @@ class DurableStreamsHandlerTest {
     }
 
     private DurableStreamsHandler handlerWithTimeouts() {
-        return new DurableStreamsHandler(
-                new InMemoryStreamStore(),
-                new CursorPolicy(Clock.systemUTC()),
-                CachePolicy.defaultPrivate(),
-                Duration.ofMillis(25),
-                Duration.ofSeconds(1),
-                1024,
-                Clock.systemUTC()
-        );
+        return DurableStreamsHandler.builder(new InMemoryStreamStore())
+                .longPollTimeout(Duration.ofMillis(25))
+                .sseMaxDuration(Duration.ofSeconds(1))
+                .maxChunkSize(1024)
+                .build();
     }
 
     private static ServerRequest request(HttpMethod method, URI uri, Map<String, List<String>> headers, byte[] body) {
