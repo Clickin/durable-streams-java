@@ -11,6 +11,7 @@ java {
 dependencies {
     api(project(":durable-streams-spring-webflux"))
     api("org.springframework.boot:spring-boot-autoconfigure:3.4.1")
+    compileOnly(project(":durable-streams-json-jackson"))
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor:3.4.1")
     compileOnly("org.springframework.boot:spring-boot-configuration-processor:3.4.1")
 }

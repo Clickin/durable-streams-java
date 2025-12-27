@@ -31,10 +31,10 @@ import java.util.stream.Collectors;
 /**
  * Micronaut controller adapter over {@link DurableStreamsHandler}.
  *
- * <p>Routes all HTTP methods under the controller path. You should mount this controller at the desired
- * stream URL namespace.
+ * <p>Routes all HTTP methods under the controller path. The base path is configurable via
+ * {@code durable-streams.base-path} property (defaults to {@code /streams}).
  */
-@Controller("/streams")
+@Controller("${durable-streams.base-path:/streams}")
 public final class DurableStreamsMicronautController {
 
     private final DurableStreamsHandler engine;
