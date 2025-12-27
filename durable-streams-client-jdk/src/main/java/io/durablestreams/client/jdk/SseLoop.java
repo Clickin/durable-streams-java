@@ -6,12 +6,12 @@ import io.durablestreams.core.Protocol;
 import io.durablestreams.core.SseParser;
 import io.durablestreams.core.StreamEvent;
 import io.durablestreams.core.Urls;
+import io.durablestreams.http.spi.HttpClientAdapter;
+import io.durablestreams.http.spi.HttpClientRequest;
+import io.durablestreams.http.spi.HttpClientResponse;
+import io.durablestreams.http.spi.HttpTimeoutException;
 
-import java.io.InputStream;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
@@ -21,10 +21,10 @@ import java.util.concurrent.SubmissionPublisher;
 
 public final class SseLoop {
 
-    private final HttpClient http;
+    private final HttpClientAdapter http;
     private final LiveSseRequest request;
 
-    public SseLoop(HttpClient http, LiveSseRequest request) {
+    public SseLoop(HttpClientAdapter http, LiveSseRequest request) {
         this.http = http;
         this.request = request;
     }
@@ -47,20 +47,19 @@ public final class SseLoop {
                         Protocol.Q_OFFSET, cur.value()
                 ));
 
-                HttpRequest req = HttpRequest.newBuilder(url)
+                HttpClientRequest req = HttpClientRequest.get(url)
                         .timeout(Duration.ofSeconds(65))
                         .header(Protocol.H_ACCEPT, Protocol.CT_EVENT_STREAM)
-                        .GET()
                         .build();
 
                 try {
-                    HttpResponse<InputStream> resp = http.send(req, HttpResponse.BodyHandlers.ofInputStream());
+                    HttpClientResponse resp = http.sendStreaming(req);
                     if (resp.statusCode() != 200) {
                         pub.closeExceptionally(new IllegalStateException("sse status=" + resp.statusCode()));
                         return;
                     }
 
-                    try (SseParser parser = new SseParser(resp.body())) {
+                    try (SseParser parser = new SseParser(resp.bodyAsStream())) {
                         SseParser.Event ev;
                         while ((ev = parser.next()) != null) {
                             String type = ev.eventType();
@@ -75,7 +74,7 @@ public final class SseLoop {
                             }
                         }
                     }
-                } catch (java.net.http.HttpTimeoutException ignored) {
+                } catch (HttpTimeoutException ignored) {
                     continue;
                 }
             }
