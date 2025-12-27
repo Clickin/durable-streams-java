@@ -7,87 +7,74 @@ import io.durablestreams.spring.webmvc.DurableStreamsWebMvcServlet;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
 
+/**
+ * Auto-configuration for Durable Streams with Spring WebMVC.
+ *
+ * <p>Provides default beans for {@link StreamStore}, {@link DurableStreamsHandler},
+ * and {@link DurableStreamsWebMvcServlet}. These can be overridden by defining your own beans.
+ *
+ * <p><strong>Note:</strong> This autoconfiguration does NOT register any servlets.
+ * Per the Durable Streams protocol, "a stream is simply a URL" and servers have complete
+ * freedom to organize streams using any URL scheme. You must manually configure your
+ * servlet mappings to use the handler.
+ *
+ * <p>Example manual servlet registration:
+ * <pre>{@code
+ * @Configuration
+ * public class StreamServletConfig {
+ *
+ *     @Bean
+ *     public ServletRegistrationBean<DurableStreamsWebMvcServlet> streamServlet(
+ *             DurableStreamsWebMvcServlet servlet) {
+ *         return new ServletRegistrationBean<>(servlet, "/api/streams/*");
+ *     }
+ *
+ *     // Multiple servlets example
+ *     @Bean
+ *     public ServletRegistrationBean<DurableStreamsWebMvcServlet> userStreamsServlet(
+ *             @Qualifier("userStore") StreamStore userStore) {
+ *         DurableStreamsHandler handler = new DurableStreamsHandler(userStore);
+ *         DurableStreamsWebMvcServlet servlet = new DurableStreamsWebMvcServlet(handler);
+ *         return new ServletRegistrationBean<>(servlet, "/users/*/events/*");
+ *     }
+ * }
+ * }</pre>
+ */
 @AutoConfiguration
-@EnableConfigurationProperties(DurableStreamsWebMvcAutoConfiguration.DurableStreamsWebMvcProperties.class)
-@ConditionalOnClass({DurableStreamsHandler.class, ServletRegistrationBean.class})
+@ConditionalOnClass({DurableStreamsHandler.class, DurableStreamsWebMvcServlet.class})
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 public class DurableStreamsWebMvcAutoConfiguration {
 
+    /**
+     * Provides a default in-memory {@link StreamStore}.
+     * Override by defining your own StreamStore bean.
+     */
     @Bean
     @ConditionalOnMissingBean
-    StreamStore durableStreamsStore() {
+    public StreamStore durableStreamsStore() {
         return new InMemoryStreamStore();
     }
 
+    /**
+     * Provides a default {@link DurableStreamsHandler} using the configured store.
+     * Override by defining your own DurableStreamsHandler bean.
+     */
     @Bean
     @ConditionalOnMissingBean
-    DurableStreamsHandler durableStreamsHandler(StreamStore store) {
+    public DurableStreamsHandler durableStreamsHandler(StreamStore store) {
         return new DurableStreamsHandler(store);
     }
 
+    /**
+     * Provides a default {@link DurableStreamsWebMvcServlet} for servlet-based integration.
+     * Override by defining your own servlet bean.
+     */
     @Bean
     @ConditionalOnMissingBean
-    DurableStreamsWebMvcServlet durableStreamsWebMvcServlet(DurableStreamsHandler handler) {
+    public DurableStreamsWebMvcServlet durableStreamsWebMvcServlet(DurableStreamsHandler handler) {
         return new DurableStreamsWebMvcServlet(handler);
-    }
-
-    @Bean
-    @ConditionalOnProperty(prefix = "durable-streams.webmvc", name = "enabled", havingValue = "true", matchIfMissing = true)
-    ServletRegistrationBean<DurableStreamsWebMvcServlet> durableStreamsServlet(
-            DurableStreamsWebMvcServlet servlet,
-            DurableStreamsWebMvcProperties properties
-    ) {
-        String mapping = toServletMapping(normalizeBasePath(properties.getBasePath()));
-        return new ServletRegistrationBean<>(servlet, mapping);
-    }
-
-    private static String normalizeBasePath(String basePath) {
-        if (basePath == null || basePath.isBlank()) {
-            return "/streams";
-        }
-        String trimmed = basePath.trim();
-        if (!trimmed.startsWith("/")) {
-            trimmed = "/" + trimmed;
-        }
-        if (trimmed.endsWith("/") && trimmed.length() > 1) {
-            trimmed = trimmed.substring(0, trimmed.length() - 1);
-        }
-        return trimmed;
-    }
-
-    private static String toServletMapping(String basePath) {
-        if ("/".equals(basePath)) {
-            return "/*";
-        }
-        return basePath + "/*";
-    }
-
-    @ConfigurationProperties(prefix = "durable-streams.webmvc")
-    public static class DurableStreamsWebMvcProperties {
-        private boolean enabled = true;
-        private String basePath = "/streams";
-
-        public boolean isEnabled() {
-            return enabled;
-        }
-
-        public void setEnabled(boolean enabled) {
-            this.enabled = enabled;
-        }
-
-        public String getBasePath() {
-            return basePath;
-        }
-
-        public void setBasePath(String basePath) {
-            this.basePath = basePath;
-        }
     }
 }

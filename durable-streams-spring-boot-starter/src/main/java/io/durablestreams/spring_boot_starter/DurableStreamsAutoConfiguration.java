@@ -3,89 +3,64 @@ package io.durablestreams.spring_boot_starter;
 import io.durablestreams.server.core.DurableStreamsHandler;
 import io.durablestreams.server.core.InMemoryStreamStore;
 import io.durablestreams.server.spi.StreamStore;
-import io.durablestreams.spring.webflux.DurableStreamsWebFluxAdapter;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.web.reactive.function.server.RequestPredicates;
-import org.springframework.web.reactive.function.server.RouterFunction;
-import org.springframework.web.reactive.function.server.RouterFunctions;
-import org.springframework.web.reactive.function.server.ServerResponse;
 
+/**
+ * Auto-configuration for Durable Streams core components.
+ *
+ * <p>Provides default beans for {@link StreamStore} and {@link DurableStreamsHandler}.
+ * These can be overridden by defining your own beans.
+ *
+ * <p><strong>Note:</strong> This autoconfiguration does NOT register any routes or endpoints.
+ * Per the Durable Streams protocol, "a stream is simply a URL" and servers have complete
+ * freedom to organize streams using any URL scheme. You must manually configure your
+ * endpoints to use the handler.
+ *
+ * <p>Example manual configuration for Spring WebFlux:
+ * <pre>{@code
+ * @Bean
+ * public RouterFunction<ServerResponse> myStreamRoutes(DurableStreamsHandler handler) {
+ *     DurableStreamsWebFluxAdapter adapter = new DurableStreamsWebFluxAdapter(handler);
+ *     return RouterFunctions.route(RequestPredicates.path("/api/streams/**"), adapter::handle);
+ * }
+ * }</pre>
+ *
+ * <p>You can configure multiple handlers at different paths:
+ * <pre>{@code
+ * @Bean
+ * public RouterFunction<ServerResponse> userStreams(
+ *         @Qualifier("userStore") StreamStore userStore) {
+ *     DurableStreamsHandler handler = new DurableStreamsHandler(userStore);
+ *     DurableStreamsWebFluxAdapter adapter = new DurableStreamsWebFluxAdapter(handler);
+ *     return RouterFunctions.route(
+ *         RequestPredicates.path("/users/{id}/data/**"), adapter::handle);
+ * }
+ * }</pre>
+ */
 @AutoConfiguration
-@EnableConfigurationProperties(DurableStreamsAutoConfiguration.DurableStreamsProperties.class)
-@ConditionalOnClass({DurableStreamsHandler.class, RouterFunction.class})
+@ConditionalOnClass(DurableStreamsHandler.class)
 public class DurableStreamsAutoConfiguration {
 
+    /**
+     * Provides a default in-memory {@link StreamStore}.
+     * Override by defining your own StreamStore bean.
+     */
     @Bean
     @ConditionalOnMissingBean
-    StreamStore durableStreamsStore() {
+    public StreamStore durableStreamsStore() {
         return new InMemoryStreamStore();
     }
 
+    /**
+     * Provides a default {@link DurableStreamsHandler} using the configured store.
+     * Override by defining your own DurableStreamsHandler bean.
+     */
     @Bean
     @ConditionalOnMissingBean
-    DurableStreamsHandler durableStreamsHandler(StreamStore store) {
+    public DurableStreamsHandler durableStreamsHandler(StreamStore store) {
         return new DurableStreamsHandler(store);
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    @ConditionalOnClass(DurableStreamsWebFluxAdapter.class)
-    DurableStreamsWebFluxAdapter durableStreamsWebFluxAdapter(DurableStreamsHandler handler) {
-        return new DurableStreamsWebFluxAdapter(handler);
-    }
-
-    @Bean
-    @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.REACTIVE)
-    @ConditionalOnProperty(prefix = "durable-streams", name = "enabled", havingValue = "true", matchIfMissing = true)
-    RouterFunction<ServerResponse> durableStreamsRoutes(
-            DurableStreamsWebFluxAdapter adapter,
-            DurableStreamsProperties properties
-    ) {
-        String basePath = normalizeBasePath(properties.getBasePath());
-        String pattern = "/".equals(basePath) ? "/**" : basePath + "/**";
-        return RouterFunctions.route(RequestPredicates.path(pattern), adapter::handle);
-    }
-
-    private static String normalizeBasePath(String basePath) {
-        if (basePath == null || basePath.isBlank()) {
-            return "/streams";
-        }
-        String trimmed = basePath.trim();
-        if (!trimmed.startsWith("/")) {
-            trimmed = "/" + trimmed;
-        }
-        if (trimmed.endsWith("/") && trimmed.length() > 1) {
-            trimmed = trimmed.substring(0, trimmed.length() - 1);
-        }
-        return trimmed;
-    }
-
-    @ConfigurationProperties(prefix = "durable-streams")
-    public static class DurableStreamsProperties {
-        private boolean enabled = true;
-        private String basePath = "/streams";
-
-        public boolean isEnabled() {
-            return enabled;
-        }
-
-        public void setEnabled(boolean enabled) {
-            this.enabled = enabled;
-        }
-
-        public String getBasePath() {
-            return basePath;
-        }
-
-        public void setBasePath(String basePath) {
-            this.basePath = basePath;
-        }
     }
 }
