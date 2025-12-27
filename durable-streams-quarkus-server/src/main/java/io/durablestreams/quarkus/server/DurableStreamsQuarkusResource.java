@@ -8,6 +8,7 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.*;
 import jakarta.ws.rs.sse.OutboundSseEvent;
 import jakarta.ws.rs.sse.Sse;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.io.ByteArrayInputStream;
 import java.net.URI;
@@ -16,9 +17,13 @@ import java.util.*;
 /**
  * Quarkus REST resource adapter over {@link DurableStreamsHandler}.
  *
- * <p>Mount under {@code /streams} by default.
+ * <p>The base path is configurable via {@code durable-streams.base-path} property
+ * (defaults to {@code /streams}). Use property expression syntax to configure:
+ * <pre>
+ * durable-streams.base-path=/my-streams
+ * </pre>
  */
-@Path("/streams")
+@Path("${durable-streams.base-path:/streams}")
 @ApplicationScoped
 public final class DurableStreamsQuarkusResource {
 
