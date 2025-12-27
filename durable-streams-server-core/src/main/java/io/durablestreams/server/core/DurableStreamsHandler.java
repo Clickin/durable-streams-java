@@ -5,7 +5,6 @@ import io.durablestreams.core.Offset;
 import io.durablestreams.core.Protocol;
 import io.durablestreams.server.spi.*;
 
-import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Clock;
@@ -18,8 +17,23 @@ import java.util.*;
  *
  * <p>This handler delegates persistence and policy decisions to {@link StreamStore}, {@link CursorPolicy},
  * and {@link CachePolicy}.
+ *
+ * <p>Use {@link #builder(StreamStore)} to create instances with custom configuration:
+ * <pre>{@code
+ * DurableStreamsHandler handler = DurableStreamsHandler.builder(store)
+ *     .longPollTimeout(Duration.ofSeconds(30))
+ *     .maxBodySize(5 * 1024 * 1024)  // 5 MB
+ *     .rateLimiter(myRateLimiter)
+ *     .build();
+ * }</pre>
  */
 public final class DurableStreamsHandler {
+
+    /** Default maximum request body size: 10 MB */
+    public static final long DEFAULT_MAX_BODY_SIZE = 10 * 1024 * 1024;
+
+    /** Constant to disable body size limiting (let framework handle it) */
+    public static final long NO_BODY_SIZE_LIMIT = Long.MAX_VALUE;
 
     private final StreamStore store;
     private final CursorPolicy cursorPolicy;
@@ -28,32 +42,140 @@ public final class DurableStreamsHandler {
     private final Duration sseMaxDuration;
     private final int maxChunkSize; // bytes for byte streams; messages for JSON streams
     private final Clock clock;
+    private final RateLimiter rateLimiter;
+    private final long maxBodySize;
 
-    public DurableStreamsHandler(StreamStore store) {
-        this(store, new CursorPolicy(Clock.systemUTC()), CachePolicy.defaultPrivate(),
-                Duration.ofSeconds(25), Duration.ofSeconds(55), 64 * 1024, Clock.systemUTC());
+    /**
+     * Creates a new builder for configuring a handler.
+     *
+     * @param store the stream store (required)
+     * @return a new builder instance
+     */
+    public static Builder builder(StreamStore store) {
+        return new Builder(store);
     }
 
-    public DurableStreamsHandler(
-            StreamStore store,
-            CursorPolicy cursorPolicy,
-            CachePolicy cachePolicy,
-            Duration longPollTimeout,
-            Duration sseMaxDuration,
-            int maxChunkSize,
-            Clock clock
-    ) {
-        this.store = Objects.requireNonNull(store, "store");
-        this.cursorPolicy = Objects.requireNonNull(cursorPolicy, "cursorPolicy");
-        this.cachePolicy = Objects.requireNonNull(cachePolicy, "cachePolicy");
-        this.longPollTimeout = Objects.requireNonNull(longPollTimeout, "longPollTimeout");
-        this.sseMaxDuration = Objects.requireNonNull(sseMaxDuration, "sseMaxDuration");
-        this.maxChunkSize = maxChunkSize;
-        this.clock = Objects.requireNonNull(clock, "clock");
+    public DurableStreamsHandler(StreamStore store) {
+        this(builder(store));
+    }
+
+    private DurableStreamsHandler(Builder builder) {
+        this.store = Objects.requireNonNull(builder.store, "store");
+        this.cursorPolicy = builder.cursorPolicy != null ? builder.cursorPolicy : new CursorPolicy(builder.clock);
+        this.cachePolicy = builder.cachePolicy != null ? builder.cachePolicy : CachePolicy.defaultPrivate();
+        this.longPollTimeout = builder.longPollTimeout != null ? builder.longPollTimeout : Duration.ofSeconds(25);
+        this.sseMaxDuration = builder.sseMaxDuration != null ? builder.sseMaxDuration : Duration.ofSeconds(55);
+        this.maxChunkSize = builder.maxChunkSize > 0 ? builder.maxChunkSize : 64 * 1024;
+        this.clock = builder.clock != null ? builder.clock : Clock.systemUTC();
+        this.rateLimiter = builder.rateLimiter != null ? builder.rateLimiter : RateLimiter.permitAll();
+        this.maxBodySize = builder.maxBodySize > 0 ? builder.maxBodySize : DEFAULT_MAX_BODY_SIZE;
+    }
+
+    /**
+     * Builder for {@link DurableStreamsHandler}.
+     */
+    public static final class Builder {
+        private final StreamStore store;
+        private CursorPolicy cursorPolicy;
+        private CachePolicy cachePolicy;
+        private Duration longPollTimeout;
+        private Duration sseMaxDuration;
+        private int maxChunkSize;
+        private Clock clock = Clock.systemUTC();
+        private RateLimiter rateLimiter;
+        private long maxBodySize;
+
+        private Builder(StreamStore store) {
+            this.store = Objects.requireNonNull(store, "store");
+        }
+
+        /** Sets the cursor policy for CDN cache collapsing prevention. */
+        public Builder cursorPolicy(CursorPolicy cursorPolicy) {
+            this.cursorPolicy = cursorPolicy;
+            return this;
+        }
+
+        /** Sets the cache control policy for GET responses. */
+        public Builder cachePolicy(CachePolicy cachePolicy) {
+            this.cachePolicy = cachePolicy;
+            return this;
+        }
+
+        /** Sets the long-poll timeout duration. Default: 25 seconds. */
+        public Builder longPollTimeout(Duration longPollTimeout) {
+            this.longPollTimeout = longPollTimeout;
+            return this;
+        }
+
+        /** Sets the maximum SSE connection duration. Default: 55 seconds. */
+        public Builder sseMaxDuration(Duration sseMaxDuration) {
+            this.sseMaxDuration = sseMaxDuration;
+            return this;
+        }
+
+        /** Sets the maximum chunk size for reads (bytes for byte streams, messages for JSON). Default: 64KB. */
+        public Builder maxChunkSize(int maxChunkSize) {
+            this.maxChunkSize = maxChunkSize;
+            return this;
+        }
+
+        /** Sets the clock for time-based operations. Default: system UTC. */
+        public Builder clock(Clock clock) {
+            this.clock = clock;
+            return this;
+        }
+
+        /**
+         * Sets the rate limiter. Default: {@link RateLimiter#permitAll()} (disabled).
+         *
+         * <p>Use {@link RateLimiter#permitAll()} when the framework handles rate limiting externally.
+         */
+        public Builder rateLimiter(RateLimiter rateLimiter) {
+            this.rateLimiter = rateLimiter;
+            return this;
+        }
+
+        /**
+         * Sets the maximum request body size in bytes. Default: 10 MB.
+         *
+         * <p>Use {@link DurableStreamsHandler#NO_BODY_SIZE_LIMIT} when the framework handles body size limiting externally.
+         */
+        public Builder maxBodySize(long maxBodySize) {
+            this.maxBodySize = maxBodySize;
+            return this;
+        }
+
+        /** Builds the handler with the configured settings. */
+        public DurableStreamsHandler build() {
+            return new DurableStreamsHandler(this);
+        }
     }
 
     public ServerResponse handle(ServerRequest req) {
+        return handle(req, null);
+    }
+
+    /**
+     * Handle a request with optional client identifier for rate limiting.
+     *
+     * @param req the incoming request
+     * @param clientId optional client identifier (e.g., IP address, API key) for rate limiting
+     * @return the response
+     */
+    public ServerResponse handle(ServerRequest req, String clientId) {
         try {
+            // Check rate limiting first
+            URI url = stripQuery(req.uri());
+            RateLimiter.Result rateResult = rateLimiter.tryAcquire(url, clientId);
+            if (rateResult instanceof RateLimiter.Result.Rejected rejected) {
+                ServerResponse resp = new ServerResponse(429, new ResponseBody.Empty())
+                        .header("Cache-Control", "no-store")
+                        .header("X-Error", "rate_limit_exceeded");
+                rejected.retryAfter().ifPresent(d ->
+                        resp.header("Retry-After", Long.toString(d.getSeconds())));
+                return resp;
+            }
+
             return switch (req.method()) {
                 case PUT -> handleCreate(req);
                 case POST -> handleAppend(req);
@@ -66,6 +188,11 @@ public final class DurableStreamsHandler {
                     .header("Content-Type", "text/plain; charset=utf-8")
                     .header("Cache-Control", "no-store")
                     .header("X-Error", br.getMessage());
+        } catch (BodySizeLimiter.PayloadTooLargeException ptle) {
+            return new ServerResponse(413, new ResponseBody.Empty())
+                    .header("Cache-Control", "no-store")
+                    .header("X-Error", "payload_too_large")
+                    .header("X-Max-Size", Long.toString(ptle.maxBytes()));
         } catch (Exception e) {
             return new ServerResponse(500, new ResponseBody.Empty())
                     .header("Cache-Control", "no-store")
@@ -83,7 +210,8 @@ public final class DurableStreamsHandler {
 
         StreamConfig config = new StreamConfig(contentType, ttl, expiresAt);
 
-        InputStream body = req.body();
+        // Wrap body with size limiter to enforce 413 Payload Too Large
+        InputStream body = BodySizeLimiter.limit(req.body(), maxBodySize);
         CreateOutcome out = store.create(url, config, body);
 
         if (out.status() == CreateOutcome.Status.EXISTS_CONFLICT) {
@@ -109,7 +237,8 @@ public final class DurableStreamsHandler {
         String streamSeq = firstHeader(req, Protocol.H_STREAM_SEQ).orElse(null);
 
         // Body must not be empty (protocol). We cannot reliably know Content-Length here, so enforce via read.
-        InputStream body = req.body();
+        // Wrap body with size limiter to enforce 413 Payload Too Large
+        InputStream body = BodySizeLimiter.limit(req.body(), maxBodySize);
         AppendOutcome out = store.append(url, contentType, streamSeq, body);
 
         return switch (out.status()) {
