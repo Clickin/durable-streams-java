@@ -3,7 +3,7 @@ package io.durablestreams.json.jackson;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.durablestreams.json.spi.JsonCodec;
 import io.durablestreams.json.spi.JsonException;
@@ -89,7 +89,8 @@ public final class JacksonJsonCodec implements JsonCodec {
     @Override
     public <T> List<T> readList(byte[] data, Class<T> elementType) throws JsonException {
         try {
-            return mapper.readValue(data, new TypeReference<List<T>>() {});
+            JavaType listType = mapper.getTypeFactory().constructCollectionType(List.class, elementType);
+            return mapper.readValue(data, listType);
         } catch (Exception e) {
             throw new JsonException("Failed to deserialize bytes to List<" + elementType.getName() + ">", e);
         }
@@ -98,7 +99,8 @@ public final class JacksonJsonCodec implements JsonCodec {
     @Override
     public <T> List<T> readList(String json, Class<T> elementType) throws JsonException {
         try {
-            return mapper.readValue(json, new TypeReference<List<T>>() {});
+            JavaType listType = mapper.getTypeFactory().constructCollectionType(List.class, elementType);
+            return mapper.readValue(json, listType);
         } catch (Exception e) {
             throw new JsonException("Failed to deserialize string to List<" + elementType.getName() + ">", e);
         }
