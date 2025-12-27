@@ -1,4 +1,6 @@
+import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.tasks.JavaExec
+import org.gradle.api.tasks.bundling.Jar
 import org.gradle.jvm.toolchain.JavaToolchainService
 
 plugins {
@@ -11,6 +13,7 @@ java {
 
 dependencies {
     implementation(project(":durable-streams-server-core"))
+    implementation(project(":durable-streams-client-jdk"))
     implementation(project(":durable-streams-json-jackson"))
     implementation(libs.javalin)
     implementation("org.slf4j:slf4j-simple:2.0.16")
@@ -30,6 +33,20 @@ tasks.register<JavaExec>("runConformanceServer") {
     dependsOn(tasks.named("classes"))
     mainClass.set("io.durablestreams.conformance.ConformanceServer")
     classpath = configurations.getByName("runtimeClasspath")
+}
+
+tasks.register<Jar>("clientAdapterJar") {
+    group = "build"
+    description = "Build a standalone jar for the client conformance adapter."
+    archiveClassifier.set("client-adapter")
+    manifest {
+        attributes["Main-Class"] = "io.durablestreams.conformance.ClientConformanceAdapter"
+    }
+    from(sourceSets.main.get().output)
+    val runtimeClasspath = configurations.runtimeClasspath.get()
+    dependsOn(runtimeClasspath)
+    from(runtimeClasspath.map { if (it.isDirectory) it else zipTree(it) })
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 tasks.register("serverConformanceTest") {
