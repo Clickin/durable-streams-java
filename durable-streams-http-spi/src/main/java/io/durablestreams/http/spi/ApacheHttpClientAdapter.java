@@ -1,16 +1,9 @@
-package io.durablestreams.http.apache5;
-
-import io.durablestreams.http.spi.HttpClientAdapter;
-import io.durablestreams.http.spi.HttpClientException;
-import io.durablestreams.http.spi.HttpClientRequest;
-import io.durablestreams.http.spi.HttpClientResponse;
-import io.durablestreams.http.spi.HttpTimeoutException;
+package io.durablestreams.http.spi;
 
 import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.core5.http.ClassicHttpResponse;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.Header;
 import org.apache.hc.core5.http.io.entity.ByteArrayEntity;
@@ -27,6 +20,8 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * {@link HttpClientAdapter} implementation using Apache HttpClient 5.
+ *
+ * <p>Requires {@code org.apache.httpcomponents.client5:httpclient5} on the classpath.
  */
 public final class ApacheHttpClientAdapter implements HttpClientAdapter {
 
@@ -36,19 +31,10 @@ public final class ApacheHttpClientAdapter implements HttpClientAdapter {
         this.httpClient = Objects.requireNonNull(httpClient, "httpClient");
     }
 
-    /**
-     * Creates a new adapter with a default HttpClient.
-     * @return a new ApacheHttpClientAdapter
-     */
     public static ApacheHttpClientAdapter create() {
         return new ApacheHttpClientAdapter(HttpClients.createDefault());
     }
 
-    /**
-     * Creates a new adapter with the specified HttpClient.
-     * @param httpClient the Apache HttpClient to use
-     * @return a new ApacheHttpClientAdapter
-     */
     public static ApacheHttpClientAdapter create(CloseableHttpClient httpClient) {
         return new ApacheHttpClientAdapter(httpClient);
     }
@@ -93,15 +79,12 @@ public final class ApacheHttpClientAdapter implements HttpClientAdapter {
 
         HttpUriRequestBase apacheRequest = new HttpUriRequestBase(method, uri);
 
-        // Set body
         if (request.body() != null) {
             apacheRequest.setEntity(new ByteArrayEntity(request.body(), ContentType.APPLICATION_OCTET_STREAM));
         }
 
-        // Set headers
         request.headers().forEach(apacheRequest::setHeader);
 
-        // Set timeout
         if (request.timeout() != null) {
             long millis = request.timeout().toMillis();
             RequestConfig config = RequestConfig.custom()
@@ -125,10 +108,7 @@ public final class ApacheHttpClientAdapter implements HttpClientAdapter {
             this.body = body;
         }
 
-        @Override
-        public int statusCode() {
-            return statusCode;
-        }
+        @Override public int statusCode() { return statusCode; }
 
         @Override
         public Optional<String> header(String name) {
@@ -140,15 +120,8 @@ public final class ApacheHttpClientAdapter implements HttpClientAdapter {
             return Optional.empty();
         }
 
-        @Override
-        public byte[] body() {
-            return body;
-        }
-
-        @Override
-        public InputStream bodyAsStream() {
-            return null;
-        }
+        @Override public byte[] body() { return body; }
+        @Override public InputStream bodyAsStream() { return null; }
     }
 
     private static final class StreamingResponse implements HttpClientResponse {
@@ -162,10 +135,7 @@ public final class ApacheHttpClientAdapter implements HttpClientAdapter {
             this.body = body;
         }
 
-        @Override
-        public int statusCode() {
-            return statusCode;
-        }
+        @Override public int statusCode() { return statusCode; }
 
         @Override
         public Optional<String> header(String name) {
@@ -177,14 +147,7 @@ public final class ApacheHttpClientAdapter implements HttpClientAdapter {
             return Optional.empty();
         }
 
-        @Override
-        public byte[] body() {
-            return null;
-        }
-
-        @Override
-        public InputStream bodyAsStream() {
-            return body != null ? new ByteArrayInputStream(body) : null;
-        }
+        @Override public byte[] body() { return null; }
+        @Override public InputStream bodyAsStream() { return body != null ? new ByteArrayInputStream(body) : null; }
     }
 }

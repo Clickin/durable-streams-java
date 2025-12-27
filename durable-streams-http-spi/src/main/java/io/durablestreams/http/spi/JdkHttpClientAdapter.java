@@ -1,10 +1,4 @@
-package io.durablestreams.http.jdk;
-
-import io.durablestreams.http.spi.HttpClientAdapter;
-import io.durablestreams.http.spi.HttpClientException;
-import io.durablestreams.http.spi.HttpClientRequest;
-import io.durablestreams.http.spi.HttpClientResponse;
-import io.durablestreams.http.spi.HttpTimeoutException;
+package io.durablestreams.http.spi;
 
 import java.io.InputStream;
 import java.net.http.HttpClient;
@@ -15,6 +9,7 @@ import java.util.Optional;
 
 /**
  * {@link HttpClientAdapter} implementation using the JDK 11+ HttpClient.
+ * This is the default implementation when no other HTTP client library is available.
  */
 public final class JdkHttpClientAdapter implements HttpClientAdapter {
 
@@ -76,17 +71,13 @@ public final class JdkHttpClientAdapter implements HttpClientAdapter {
     private static HttpRequest toJdkRequest(HttpClientRequest request) {
         HttpRequest.Builder builder = HttpRequest.newBuilder(request.uri());
 
-        // Set method and body
         HttpRequest.BodyPublisher bodyPublisher = request.body() == null
                 ? HttpRequest.BodyPublishers.noBody()
                 : HttpRequest.BodyPublishers.ofByteArray(request.body());
 
         builder.method(request.method(), bodyPublisher);
-
-        // Set headers
         request.headers().forEach(builder::header);
 
-        // Set timeout
         if (request.timeout() != null) {
             builder.timeout(request.timeout());
         }

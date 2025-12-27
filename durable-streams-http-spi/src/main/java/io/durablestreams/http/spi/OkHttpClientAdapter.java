@@ -1,10 +1,4 @@
-package io.durablestreams.http.okhttp;
-
-import io.durablestreams.http.spi.HttpClientAdapter;
-import io.durablestreams.http.spi.HttpClientException;
-import io.durablestreams.http.spi.HttpClientRequest;
-import io.durablestreams.http.spi.HttpClientResponse;
-import io.durablestreams.http.spi.HttpTimeoutException;
+package io.durablestreams.http.spi;
 
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -22,6 +16,8 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * {@link HttpClientAdapter} implementation using OkHttp.
+ *
+ * <p>Requires {@code com.squareup.okhttp3:okhttp} on the classpath.
  */
 public final class OkHttpClientAdapter implements HttpClientAdapter {
 
@@ -31,19 +27,10 @@ public final class OkHttpClientAdapter implements HttpClientAdapter {
         this.httpClient = Objects.requireNonNull(httpClient, "httpClient");
     }
 
-    /**
-     * Creates a new adapter with a default OkHttpClient.
-     * @return a new OkHttpClientAdapter
-     */
     public static OkHttpClientAdapter create() {
         return new OkHttpClientAdapter(new OkHttpClient());
     }
 
-    /**
-     * Creates a new adapter with the specified OkHttpClient.
-     * @param httpClient the OkHttpClient to use
-     * @return a new OkHttpClientAdapter
-     */
     public static OkHttpClientAdapter create(OkHttpClient httpClient) {
         return new OkHttpClientAdapter(httpClient);
     }
@@ -92,10 +79,8 @@ public final class OkHttpClientAdapter implements HttpClientAdapter {
         Request.Builder builder = new Request.Builder()
                 .url(request.uri().toString());
 
-        // Set headers
         request.headers().forEach(builder::header);
 
-        // Set method and body
         RequestBody body = null;
         if (request.body() != null) {
             String contentType = request.headers().get("Content-Type");
@@ -107,10 +92,7 @@ public final class OkHttpClientAdapter implements HttpClientAdapter {
         switch (method) {
             case "GET" -> builder.get();
             case "HEAD" -> builder.head();
-            case "DELETE" -> {
-                if (body != null) builder.delete(body);
-                else builder.delete();
-            }
+            case "DELETE" -> { if (body != null) builder.delete(body); else builder.delete(); }
             case "POST" -> builder.post(body != null ? body : RequestBody.create(new byte[0], null));
             case "PUT" -> builder.put(body != null ? body : RequestBody.create(new byte[0], null));
             case "PATCH" -> builder.patch(body != null ? body : RequestBody.create(new byte[0], null));
@@ -130,51 +112,21 @@ public final class OkHttpClientAdapter implements HttpClientAdapter {
             this.body = responseBody != null ? responseBody.bytes() : null;
         }
 
-        @Override
-        public int statusCode() {
-            return response.code();
-        }
-
-        @Override
-        public Optional<String> header(String name) {
-            return Optional.ofNullable(response.header(name));
-        }
-
-        @Override
-        public byte[] body() {
-            return body;
-        }
-
-        @Override
-        public InputStream bodyAsStream() {
-            return null;
-        }
+        @Override public int statusCode() { return response.code(); }
+        @Override public Optional<String> header(String name) { return Optional.ofNullable(response.header(name)); }
+        @Override public byte[] body() { return body; }
+        @Override public InputStream bodyAsStream() { return null; }
     }
 
     private static final class StreamingResponse implements HttpClientResponse {
         private final Response response;
 
-        StreamingResponse(Response response) {
-            this.response = response;
-        }
+        StreamingResponse(Response response) { this.response = response; }
 
-        @Override
-        public int statusCode() {
-            return response.code();
-        }
-
-        @Override
-        public Optional<String> header(String name) {
-            return Optional.ofNullable(response.header(name));
-        }
-
-        @Override
-        public byte[] body() {
-            return null;
-        }
-
-        @Override
-        public InputStream bodyAsStream() {
+        @Override public int statusCode() { return response.code(); }
+        @Override public Optional<String> header(String name) { return Optional.ofNullable(response.header(name)); }
+        @Override public byte[] body() { return null; }
+        @Override public InputStream bodyAsStream() {
             ResponseBody body = response.body();
             return body != null ? body.byteStream() : null;
         }
