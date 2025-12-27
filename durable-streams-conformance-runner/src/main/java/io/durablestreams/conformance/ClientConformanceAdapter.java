@@ -1,9 +1,10 @@
 package io.durablestreams.conformance;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.durablestreams.json.jackson.JacksonJsonCodec;
+import io.durablestreams.json.spi.ArrayNode;
+import io.durablestreams.json.spi.JsonCodec;
+import io.durablestreams.json.spi.JsonNode;
+import io.durablestreams.json.spi.ObjectNode;
 import io.durablestreams.client.jdk.AppendRequest;
 import io.durablestreams.client.jdk.AppendResult;
 import io.durablestreams.client.jdk.CreateRequest;
@@ -37,7 +38,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 public final class ClientConformanceAdapter {
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final JsonCodec CODEC = new JacksonJsonCodec();
     private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
     private static final int DEFAULT_TIMEOUT_MS = 5000;
     private static final int DEFAULT_MAX_CHUNKS = 100;
@@ -67,7 +68,7 @@ public final class ClientConformanceAdapter {
             String commandType = null;
             ObjectNode result;
             try {
-                JsonNode command = MAPPER.readTree(line);
+                JsonNode command = CODEC.readTree(line);
                 commandType = text(command, "type");
                 result = handleCommand(command);
             } catch (Exception e) {
@@ -75,7 +76,7 @@ public final class ClientConformanceAdapter {
                         "Failed to parse command: " + e.getMessage());
             }
 
-            System.out.println(MAPPER.writeValueAsString(result));
+            System.out.println(CODEC.writeString(result));
 
             if ("shutdown".equals(commandType)) {
                 break;
@@ -519,7 +520,7 @@ public final class ClientConformanceAdapter {
     }
 
     private static ObjectNode successNode(String type) {
-        ObjectNode node = MAPPER.createObjectNode();
+        ObjectNode node = CODEC.createObjectNode();
         node.put("type", type);
         node.put("success", true);
         return node;
@@ -531,7 +532,7 @@ public final class ClientConformanceAdapter {
     }
 
     private static ObjectNode errorNode(String commandType, Integer status, String errorCode, String message) {
-        ObjectNode node = MAPPER.createObjectNode();
+        ObjectNode node = CODEC.createObjectNode();
         node.put("type", "error");
         node.put("success", false);
         node.put("commandType", commandType);

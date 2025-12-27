@@ -1,47 +1,82 @@
 package io.durablestreams.json_jackson;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.durablestreams.core.ControlJson;
+import io.durablestreams.json.jackson.JacksonJsonCodec;
+import io.durablestreams.json.spi.JsonCodec;
+import io.durablestreams.json.spi.JsonException;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Helper for JSON stream operations.
+ * Uses the JsonCodec abstraction to support different JSON implementations.
+ */
 public final class JsonStreamHelper {
-    private final ObjectMapper mapper;
+    private final JsonCodec codec;
 
+    /**
+     * Creates a helper with the default Jackson JSON codec.
+     */
     public JsonStreamHelper() {
-        this(new ObjectMapper());
+        this(new JacksonJsonCodec());
     }
 
-    public JsonStreamHelper(ObjectMapper mapper) {
-        this.mapper = Objects.requireNonNull(mapper, "mapper");
+    /**
+     * Creates a helper with a custom JSON codec.
+     * @param codec the JSON codec to use
+     */
+    public JsonStreamHelper(JsonCodec codec) {
+        this.codec = Objects.requireNonNull(codec, "codec");
     }
 
-    public byte[] wrapForAppend(Object value) throws JsonProcessingException {
+    /**
+     * Wraps a single value in a JSON array for appending to a stream.
+     * @param value the value to wrap
+     * @return JSON bytes
+     * @throws JsonException if serialization fails
+     */
+    public byte[] wrapForAppend(Object value) throws JsonException {
         if (value == null) {
             throw new IllegalArgumentException("value must not be null");
         }
-        return mapper.writeValueAsBytes(List.of(value));
+        return codec.writeBytes(List.of(value));
     }
 
-    public byte[] serializeBatch(List<?> values) throws JsonProcessingException {
+    /**
+     * Serializes a batch of values to JSON.
+     * @param values the values to serialize
+     * @return JSON bytes
+     * @throws JsonException if serialization fails
+     */
+    public byte[] serializeBatch(List<?> values) throws JsonException {
         Objects.requireNonNull(values, "values");
         if (values.isEmpty()) {
             throw new IllegalArgumentException("values must not be empty");
         }
-        return mapper.writeValueAsBytes(values);
+        return codec.writeBytes(values);
     }
 
-    public <T> List<T> parseMessages(byte[] data, Class<T> type) throws IOException {
+    /**
+     * Parses JSON bytes to a list of typed objects.
+     * @param data JSON bytes
+     * @param type element type
+     * @return list of deserialized objects
+     * @throws JsonException if deserialization fails
+     */
+    public <T> List<T> parseMessages(byte[] data, Class<T> type) throws JsonException {
         Objects.requireNonNull(type, "type");
         if (data == null || data.length == 0) {
             return List.of();
         }
-        return mapper.readerForListOf(type).readValue(data);
+        return codec.readList(data, type);
     }
 
+    /**
+     * Parses a control event from SSE JSON.
+     * @param json SSE control JSON
+     * @return parsed control event
+     */
     public ControlEvent parseControl(String json) {
         ControlJson.Control control = ControlJson.parse(json);
         return new ControlEvent(control.streamNextOffset(), control.streamCursor());
@@ -50,3 +85,4 @@ public final class JsonStreamHelper {
     public record ControlEvent(String streamNextOffset, String streamCursor) {
     }
 }
+
