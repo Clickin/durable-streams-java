@@ -18,6 +18,7 @@ include(
   "durable-streams-http-jdk",
   "durable-streams-http-apache5",
   "durable-streams-http-okhttp",
+  "durable-streams-http-spring",
   "durable-streams-client-jdk",
   "durable-streams-json-spi",
   "durable-streams-json-jackson",
