@@ -5,14 +5,10 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.durablestreams.json.spi.ArrayNode;
 import io.durablestreams.json.spi.JsonCodec;
 import io.durablestreams.json.spi.JsonException;
-import io.durablestreams.json.spi.JsonNode;
-import io.durablestreams.json.spi.ObjectNode;
 
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Objects;
 
@@ -106,48 +102,6 @@ public final class JacksonJsonCodec implements JsonCodec {
         } catch (Exception e) {
             throw new JsonException("Failed to deserialize string to List<" + elementType.getName() + ">", e);
         }
-    }
-
-    @Override
-    public JsonNode readTree(byte[] data) throws JsonException {
-        try {
-            com.fasterxml.jackson.databind.JsonNode node = mapper.readTree(data);
-            return JacksonJsonNode.wrap(node, mapper);
-        } catch (Exception e) {
-            throw new JsonException("Failed to parse bytes to tree", e);
-        }
-    }
-
-    @Override
-    public JsonNode readTree(String json) throws JsonException {
-        try {
-            com.fasterxml.jackson.databind.JsonNode node = mapper.readTree(json);
-            return JacksonJsonNode.wrap(node, mapper);
-        } catch (Exception e) {
-            throw new JsonException("Failed to parse string to tree", e);
-        }
-    }
-
-    @Override
-    public JsonNode readTree(InputStream input) throws JsonException {
-        try {
-            com.fasterxml.jackson.databind.JsonNode node = mapper.readTree(input);
-            return JacksonJsonNode.wrap(node, mapper);
-        } catch (Exception e) {
-            throw new JsonException("Failed to parse input stream to tree", e);
-        }
-    }
-
-    @Override
-    public ObjectNode createObjectNode() {
-        com.fasterxml.jackson.databind.node.ObjectNode node = mapper.createObjectNode();
-        return new JacksonObjectNode(node, mapper);
-    }
-
-    @Override
-    public ArrayNode createArrayNode() {
-        com.fasterxml.jackson.databind.node.ArrayNode node = mapper.createArrayNode();
-        return new JacksonArrayNode(node, mapper);
     }
 
     @Override
