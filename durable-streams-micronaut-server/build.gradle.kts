@@ -7,6 +7,7 @@ dependencies {
     api(project(":durable-streams-reactive-adapters"))
     api("io.micronaut:micronaut-http:4.7.0")
     api("io.micronaut:micronaut-http-server:4.7.0")
+    compileOnly(project(":durable-streams-json-jackson"))
     annotationProcessor("io.micronaut:micronaut-inject-java:4.7.0")
     compileOnly("jakarta.annotation:jakarta.annotation-api:2.1.1")
 }
