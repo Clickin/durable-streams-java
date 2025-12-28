@@ -54,7 +54,7 @@ public final class BodySizeLimiter {
 
         @Override
         public int read() throws IOException {
-            if (bytesRead >= maxBytes) {
+            if (bytesRead > maxBytes) {
                 throw new PayloadTooLargeException(maxBytes);
             }
             int b = super.read();
@@ -69,12 +69,11 @@ public final class BodySizeLimiter {
 
         @Override
         public int read(byte[] b, int off, int len) throws IOException {
-            if (bytesRead >= maxBytes) {
+            if (bytesRead > maxBytes) {
                 throw new PayloadTooLargeException(maxBytes);
             }
-            // Limit the read to not exceed maxBytes
             long remaining = maxBytes - bytesRead;
-            int toRead = (int) Math.min(len, remaining + 1); // +1 to detect overflow
+            int toRead = (int) Math.min(len, remaining + 1);
             int n = super.read(b, off, toRead);
             if (n > 0) {
                 bytesRead += n;
@@ -96,5 +95,6 @@ public final class BodySizeLimiter {
             }
             return skipped;
         }
+
     }
 }

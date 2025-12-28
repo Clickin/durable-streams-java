@@ -137,6 +137,9 @@ class JdkDurableStreamsClientTest {
 
         server.enqueue(new MockResponse()
                 .setResponseCode(200)
+                .addHeader("Content-Type", "text/plain"));
+        server.enqueue(new MockResponse()
+                .setResponseCode(200)
                 .addHeader("Content-Type", "text/event-stream")
                 .setBody(body));
 
