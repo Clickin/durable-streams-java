@@ -39,6 +39,14 @@ public final class SseLoop {
 
     private void run(SubmissionPublisher<StreamEvent> pub) {
         Offset cur = request.offset();
+        String streamContentType;
+
+        try {
+            streamContentType = resolveStreamContentType();
+        } catch (Exception e) {
+            pub.closeExceptionally(e);
+            return;
+        }
 
         try {
             while (!pub.isClosed()) {
@@ -67,11 +75,14 @@ public final class SseLoop {
                             String data = ev.data();
 
                             if ("data".equals(type)) {
-                                pub.submit(new StreamEvent.Data(java.nio.ByteBuffer.wrap(data.getBytes(StandardCharsets.UTF_8)), "text/plain"));
+                                pub.submit(new StreamEvent.Data(java.nio.ByteBuffer.wrap(data.getBytes(StandardCharsets.UTF_8)), streamContentType));
                             } else if ("control".equals(type)) {
                                 ControlJson.Control c = ControlJson.parse(data);
                                 cur = new Offset(c.streamNextOffset());
                                 pub.submit(new StreamEvent.Control(cur, Optional.ofNullable(c.streamCursor())));
+                                if (ControlJson.parseUpToDate(data)) {
+                                    pub.submit(new StreamEvent.UpToDate(cur));
+                                }
                             }
                         }
                     }
@@ -82,5 +93,16 @@ public final class SseLoop {
         } catch (Exception e) {
             pub.closeExceptionally(e);
         }
+    }
+
+    private String resolveStreamContentType() throws Exception {
+        HttpRequest req = HttpRequest.newBuilder(request.streamUrl())
+                .method("HEAD", HttpRequest.BodyPublishers.noBody())
+                .build();
+        HttpResponse<Void> resp = http.send(req, HttpResponse.BodyHandlers.discarding());
+        if (resp.statusCode() >= 400) {
+            throw new IllegalStateException("head status=" + resp.statusCode());
+        }
+        return resp.headers().firstValue(Protocol.H_CONTENT_TYPE).orElse("application/octet-stream");
     }
 }

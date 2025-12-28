@@ -93,7 +93,7 @@ final class FlowingSsePublisher implements Flow.Publisher<SseFrame> {
                     }
 
                     byte[] body = out.body() == null ? new byte[0] : out.body();
-                    boolean hasBody = body.length > 0;
+                    boolean hasBody = body.length > 0 && !isJsonEmptyArray(body, out.contentType());
 
                     Offset nextOffset = out.nextOffset();
                     if (!hasBody && out.upToDate()) {
@@ -146,5 +146,19 @@ final class FlowingSsePublisher implements Flow.Publisher<SseFrame> {
         }
         sb.append("}");
         return sb.toString();
+    }
+
+    private static boolean isJsonEmptyArray(byte[] body, String contentType) {
+        if (!isJsonContentType(contentType)) return false;
+        if (body == null || body.length == 0) return true;
+        String trimmed = new String(body, java.nio.charset.StandardCharsets.UTF_8).trim();
+        return "[]".equals(trimmed);
+    }
+
+    private static boolean isJsonContentType(String contentType) {
+        if (contentType == null) return false;
+        int semi = contentType.indexOf(';');
+        String base = semi >= 0 ? contentType.substring(0, semi) : contentType;
+        return "application/json".equalsIgnoreCase(base.trim());
     }
 }
