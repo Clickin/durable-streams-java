@@ -29,15 +29,14 @@ public final class ConformanceServer {
     private static final int PORT = 4437;
 
     public static void main(String[] args) {
-        DurableStreamsHandler handler = new DurableStreamsHandler(
-                new InMemoryStreamStore(),
-                new CursorPolicy(Clock.systemUTC()),
-                CachePolicy.defaultPrivate(),
-                Duration.ofSeconds(25),
-                Duration.ofSeconds(60),
-                64 * 1024,
-                Clock.systemUTC()
-        );
+        DurableStreamsHandler handler = DurableStreamsHandler.builder(new InMemoryStreamStore())
+                .cursorPolicy(new CursorPolicy(Clock.systemUTC()))
+                .cachePolicy(CachePolicy.defaultPrivate())
+                .longPollTimeout(Duration.ofSeconds(25))
+                .sseMaxDuration(Duration.ofSeconds(60))
+                .maxChunkSize(64 * 1024)
+                .clock(Clock.systemUTC())
+                .build();
 
         Javalin app = Javalin.create();
         app.get("/*", ctx -> handle(ctx, handler));

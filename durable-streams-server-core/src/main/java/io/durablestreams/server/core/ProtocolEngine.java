@@ -23,15 +23,14 @@ public final class ProtocolEngine {
             int maxChunkSize,
             Clock clock
     ) {
-        this.handler = new DurableStreamsHandler(
-                Objects.requireNonNull(store, "store"),
-                Objects.requireNonNull(cursorPolicy, "cursorPolicy"),
-                Objects.requireNonNull(cachePolicy, "cachePolicy"),
-                Objects.requireNonNull(longPollTimeout, "longPollTimeout"),
-                Objects.requireNonNull(sseMaxDuration, "sseMaxDuration"),
-                maxChunkSize,
-                Objects.requireNonNull(clock, "clock")
-        );
+        this.handler = DurableStreamsHandler.builder(Objects.requireNonNull(store, "store"))
+                .cursorPolicy(Objects.requireNonNull(cursorPolicy, "cursorPolicy"))
+                .cachePolicy(Objects.requireNonNull(cachePolicy, "cachePolicy"))
+                .longPollTimeout(Objects.requireNonNull(longPollTimeout, "longPollTimeout"))
+                .sseMaxDuration(Objects.requireNonNull(sseMaxDuration, "sseMaxDuration"))
+                .maxChunkSize(maxChunkSize)
+                .clock(Objects.requireNonNull(clock, "clock"))
+                .build();
     }
 
     public ServerResponse handle(ServerRequest request) {
