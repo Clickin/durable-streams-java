@@ -10,25 +10,11 @@ Java 17 implementation of the Durable Streams protocol.
 - `durable-streams-json-jackson` - Jackson implementation for JSON mode (optional)
 - `durable-streams-server-spi` - server storage/policy abstractions
 - `durable-streams-server-core` - protocol engine
+- `durable-streams-spring-webmvc` - Spring MVC integration helpers
+- `durable-streams-spring-webflux` - Spring WebFlux integration helpers
+- `durable-streams-micronaut` - Micronaut integration helpers
+- `durable-streams-quarkus` - Quarkus integration helpers
 - `durable-streams-conformance-runner` - conformance server/client runner
-
-## Reference adapters (not built)
-
-These directories are kept as reference examples and are excluded from `settings.gradle.kts`:
-
-- `durable-streams-reactive-adapters`
-- `durable-streams-client-reactor`
-- `durable-streams-client-rxjava3`
-- `durable-streams-kotlin`
-- `durable-streams-spring-webflux`
-- `durable-streams-spring-webmvc`
-- `durable-streams-spring-webflux-starter`
-- `durable-streams-spring-webmvc-starter`
-- `durable-streams-spring-boot-starter`
-- `durable-streams-micronaut-server`
-- `durable-streams-micronaut-client`
-- `durable-streams-quarkus-server`
-- `durable-streams-quarkus-client`
 
 ## JSON mode
 

@@ -14,26 +14,12 @@ durable-streams-java/
 ├── durable-streams-json-jackson/       # JSON mode (Jackson, 선택)
 ├── durable-streams-server-spi/         # 서버 스토리지 추상화
 ├── durable-streams-server-core/        # 프로토콜 엔진
+├── durable-streams-spring-webmvc/      # Spring MVC 통합 헬퍼
+├── durable-streams-spring-webflux/     # Spring WebFlux 통합 헬퍼
+├── durable-streams-micronaut/          # Micronaut 통합 헬퍼
+├── durable-streams-quarkus/            # Quarkus 통합 헬퍼
 └── durable-streams-conformance-runner/ # conformance test runner
 ```
-
-### 참고 구현 (빌드 제외)
-
-아래 디렉터리는 참고용 어댑터/예시 코드이며, `settings.gradle.kts`에서 제외되어 빌드되지 않습니다.
-
-- durable-streams-reactive-adapters/
-- durable-streams-client-reactor/
-- durable-streams-client-rxjava3/
-- durable-streams-kotlin/
-- durable-streams-spring-webflux/
-- durable-streams-spring-webmvc/
-- durable-streams-spring-webflux-starter/
-- durable-streams-spring-webmvc-starter/
-- durable-streams-spring-boot-starter/
-- durable-streams-micronaut-server/
-- durable-streams-micronaut-client/
-- durable-streams-quarkus-server/
-- durable-streams-quarkus-client/
 
 ---
 
