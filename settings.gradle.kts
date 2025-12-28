@@ -2,7 +2,7 @@ rootProject.name = "durable-streams-java"
 
 include(
   "durable-streams-core",
-  "durable-streams-client-jdk",
+  "durable-streams-client",
   "durable-streams-json-spi",
   "durable-streams-json-jackson",
   "durable-streams-server-spi",

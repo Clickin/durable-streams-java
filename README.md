@@ -5,7 +5,7 @@ Java 17 implementation of the Durable Streams protocol.
 ## Built modules
 
 - `durable-streams-core` - protocol types and helpers
-- `durable-streams-client-jdk` - JDK HttpClient client
+- `durable-streams-client` - JDK HttpClient client
 - `durable-streams-json-spi` - JSON serialization SPI (library-agnostic)
 - `durable-streams-json-jackson` - Jackson implementation for JSON mode (optional)
 - `durable-streams-server-spi` - server storage/policy abstractions
@@ -53,8 +53,8 @@ dependencies {
 Usage:
 
 ```java
-import io.durablestreams.client.jdk.DurableStreamsClient;
-import io.durablestreams.client.jdk.LiveLongPollRequest;
+import io.durablestreams.client.DurableStreamsClient;
+import io.durablestreams.client.LiveLongPollRequest;
 import io.durablestreams.core.StreamEvent;
 import org.reactivestreams.FlowAdapters;
 import reactor.core.publisher.Flux;
@@ -78,7 +78,7 @@ dependencies {
 Usage:
 
 ```java
-import io.durablestreams.client.jdk.DurableStreamsClient;
+import io.durablestreams.client.DurableStreamsClient;
 import io.durablestreams.core.StreamEvent;
 import io.reactivex.rxjava3.core.Flowable;
 import org.reactivestreams.FlowAdapters;
@@ -102,7 +102,7 @@ dependencies {
 Usage:
 
 ```kotlin
-import io.durablestreams.client.jdk.DurableStreamsClient
+import io.durablestreams.client.DurableStreamsClient
 import io.durablestreams.core.StreamEvent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.reactive.asFlow
