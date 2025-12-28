@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test:server": "vitest run conformance.test.mjs",
+    "test:server": "vitest run server-conformance.test.mjs",
     "test:client": "vitest run client-conformance.test.mjs"
   },
   "keywords": [],
