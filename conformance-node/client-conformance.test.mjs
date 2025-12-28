@@ -1,8 +1,8 @@
+import { runConformanceTests } from "@durable-streams/client-conformance-tests";
+import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
 import { test } from "vitest";
-import { runConformanceTests } from "@durable-streams/client-conformance-tests";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 
@@ -22,7 +22,7 @@ if (isWindows && /\.cmd$|\.bat$/i.test(adapterPath)) {
 }
 
 const portEnv = process.env.CLIENT_CONFORMANCE_PORT;
-const serverPort = portEnv ? Number(portEnv) : 4437;
+const serverPort = portEnv ? Number(portEnv) : 4438;
 
 test("client conformance tests", { timeout: 120000 }, async () => {
   const result = await runConformanceTests({
