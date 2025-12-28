@@ -15,6 +15,7 @@ dependencies {
     implementation(project(":durable-streams-server-core"))
     implementation(project(":durable-streams-client-jdk"))
     implementation(project(":durable-streams-json-jackson"))
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.18.2")
     implementation(libs.javalin)
     implementation("org.slf4j:slf4j-simple:2.0.16")
 }
@@ -32,13 +33,23 @@ tasks.register<JavaExec>("runConformanceServer") {
     description = "Start the Javalin conformance server on port 4437."
     dependsOn(tasks.named("classes"))
     mainClass.set("io.durablestreams.conformance.ConformanceServer")
-    classpath = configurations.getByName("runtimeClasspath")
+    classpath = sourceSets.main.get().runtimeClasspath
+}
+
+tasks.register<JavaExec>("runClientAdapter") {
+    group = "application"
+    description = "Run the client conformance adapter via Gradle."
+    dependsOn(tasks.named("classes"))
+    mainClass.set("io.durablestreams.conformance.ClientConformanceAdapter")
+    classpath = sourceSets.main.get().runtimeClasspath
 }
 
 tasks.register<Jar>("clientAdapterJar") {
     group = "build"
     description = "Build a standalone jar for the client conformance adapter."
-    archiveClassifier.set("client-adapter")
+    archiveBaseName.set("client-adapter")
+    archiveVersion.set("")
+    archiveClassifier.set("")
     manifest {
         attributes["Main-Class"] = "io.durablestreams.conformance.ClientConformanceAdapter"
     }

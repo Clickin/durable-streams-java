@@ -4,13 +4,15 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test:server": "vitest run conformance.test.mjs",
+    "test:client": "vitest run client-conformance.test.mjs"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "devDependencies": {
+    "@durable-streams/client-conformance-tests": "^0.1.4",
     "@durable-streams/server-conformance-tests": "^0.1.4",
     "vitest": "^4.0.16"
   }

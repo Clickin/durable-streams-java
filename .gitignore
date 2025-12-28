@@ -9,3 +9,8 @@ _upstream
 
 node_modules
 temp_import.txt
+bin
+*.classpath
+*.class
+*.bin
+nul

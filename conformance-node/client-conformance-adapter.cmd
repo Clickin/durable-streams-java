@@ -1,11 +1,15 @@
 @echo off
 setlocal
-set "JAR=%~dp0..\durable-streams-conformance-runner\build\libs\durable-streams-conformance-runner-client-adapter.jar"
-if not exist "%JAR%" (
-  echo Client adapter jar not found: %JAR% 1>&2
-  echo Build it with: ..\gradlew :durable-streams-conformance-runner:clientAdapterJar 1>&2
-  exit /b 1
+
+set "SCRIPT_DIR=%~dp0"
+set "ROOT_DIR=%SCRIPT_DIR%.."
+set "JAR_PATH=%ROOT_DIR%\durable-streams-conformance-runner\build\libs\client-adapter.jar"
+
+if not exist "%JAR_PATH%" (
+    echo ERROR: Client adapter JAR not found at %JAR_PATH% >&2
+    echo Please build it first: gradlew :durable-streams-conformance-runner:clientAdapterJar >&2
+    exit /b 1
 )
-if "%JAVA_CMD%"=="" set "JAVA_CMD=java"
-"%JAVA_CMD%" -jar "%JAR%"
-endlocal
+
+java -jar "%JAR_PATH%"
+exit /b %ERRORLEVEL%

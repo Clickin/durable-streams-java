@@ -58,6 +58,7 @@ public final class ClientConformanceAdapter {
 
     private void run() throws Exception {
         BufferedReader reader = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
+        java.io.PrintStream utf8Out = new java.io.PrintStream(System.out, true, StandardCharsets.UTF_8);
         String line;
         while ((line = reader.readLine()) != null) {
             if (line.isBlank()) {
@@ -75,7 +76,7 @@ public final class ClientConformanceAdapter {
                         "Failed to parse command: " + e.getMessage());
             }
 
-            System.out.println(MAPPER.writeValueAsString(result));
+            utf8Out.println(MAPPER.writeValueAsString(result));
 
             if ("shutdown".equals(commandType)) {
                 break;
@@ -198,10 +199,12 @@ public final class ClientConformanceAdapter {
         }
 
         byte[] body = decodeBody(command);
-        AppendRequest request = new AppendRequest(uri, contentType, headers.isEmpty() ? null : headers,
-                new ByteArrayInputStream(body));
+        Map<String, String> finalHeaders = headers.isEmpty() ? null : headers;
+        String finalContentType = contentType;
 
-        AppendResult result = executeWithRetries(() -> client.append(request), AppendResult::status);
+        AppendResult result = executeWithRetries(
+                () -> client.append(new AppendRequest(uri, finalContentType, finalHeaders, new ByteArrayInputStream(body))),
+                AppendResult::status);
 
         if (result.status() >= 400) {
             return errorForStatus("append", result.status(), command);
@@ -546,14 +549,32 @@ public final class ClientConformanceAdapter {
     private static ObjectNode errorFromException(String commandType, Throwable error) {
         String code = "INTERNAL_ERROR";
         String message = error.getMessage() == null ? error.toString() : error.getMessage();
+        Integer status = null;
 
         if (isTimeout(error)) {
             code = "TIMEOUT";
         } else if (isNetworkError(error)) {
             code = "NETWORK_ERROR";
+        } else {
+            Integer extractedStatus = extractHttpStatus(error);
+            if (extractedStatus != null) {
+                status = extractedStatus;
+                code = errorCodeForStatus(commandType, extractedStatus, null);
+            }
         }
 
-        return errorNode(commandType, null, code, message);
+        return errorNode(commandType, status, code, message);
+    }
+
+    private static Integer extractHttpStatus(Throwable error) {
+        String msg = error.getMessage();
+        if (msg == null) return null;
+
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("status=(\\d+)").matcher(msg);
+        if (matcher.find()) {
+            return Integer.parseInt(matcher.group(1));
+        }
+        return null;
     }
 
     private static boolean isTimeout(Throwable error) {
