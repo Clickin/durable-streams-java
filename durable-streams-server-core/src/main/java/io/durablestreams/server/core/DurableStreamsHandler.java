@@ -212,7 +212,13 @@ public final class DurableStreamsHandler {
 
         // Wrap body with size limiter to enforce 413 Payload Too Large
         InputStream body = BodySizeLimiter.limit(req.body(), maxBodySize);
-        CreateOutcome out = store.create(url, config, body);
+        CreateOutcome out;
+        try {
+            out = store.create(url, config, body);
+        } catch (IllegalArgumentException e) {
+            throw new BadRequest(e.getMessage());
+        }
+
 
         if (out.status() == CreateOutcome.Status.EXISTS_CONFLICT) {
             return new ServerResponse(409, new ResponseBody.Empty()).header("Cache-Control", "no-store");

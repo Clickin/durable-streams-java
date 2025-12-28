@@ -5,29 +5,35 @@ Durable Streams Java 구현체의 모듈 구조와 각 모듈의 역할을 설�
 ## 모듈 개요
 
 ```
+
 durable-streams-java/
 │
 ├── durable-streams-core/               # 프로토콜 기반 (의존성 0)
 ├── durable-streams-client-jdk/         # JDK HttpClient 클라이언트
+├── durable-streams-json-spi/           # JSON 직렬화/역직렬화 추상화
+├── durable-streams-json-jackson/       # JSON mode (Jackson, 선택)
 ├── durable-streams-server-spi/         # 서버 스토리지 추상화
 ├── durable-streams-server-core/        # 프로토콜 엔진
-│
-├── durable-streams-json-jackson/       # JSON mode (Jackson)
-│
-├── durable-streams-reactive-adapters/  # Flow ↔ RS Publisher
-├── durable-streams-client-reactor/     # Reactor 어댑터
-├── durable-streams-client-rxjava3/     # RxJava3 어댑터
-├── durable-streams-kotlin/             # Kotlin coroutines
-│
-├── durable-streams-spring-webflux/     # Spring WebFlux 서버
-├── durable-streams-spring-webmvc/      # Spring MVC 서버
-├── durable-streams-spring-boot-starter/
-│
-├── durable-streams-micronaut-server/   # Micronaut 서버
-├── durable-streams-quarkus-server/     # Quarkus 서버
-│
-└── durable-streams-testkit/            # 테스트 도구
+└── durable-streams-conformance-runner/ # conformance test runner
 ```
+
+### 참고 구현 (빌드 제외)
+
+아래 디렉터리는 참고용 어댑터/예시 코드이며, `settings.gradle.kts`에서 제외되어 빌드되지 않습니다.
+
+- durable-streams-reactive-adapters/
+- durable-streams-client-reactor/
+- durable-streams-client-rxjava3/
+- durable-streams-kotlin/
+- durable-streams-spring-webflux/
+- durable-streams-spring-webmvc/
+- durable-streams-spring-webflux-starter/
+- durable-streams-spring-webmvc-starter/
+- durable-streams-spring-boot-starter/
+- durable-streams-micronaut-server/
+- durable-streams-micronaut-client/
+- durable-streams-quarkus-server/
+- durable-streams-quarkus-client/
 
 ---
 
@@ -327,6 +333,8 @@ public record ControlEvent(
 
 ## Reactive Adapters
 
+※ 아래 모듈은 참고 구현이며 빌드 대상이 아닙니다.
+
 ### durable-streams-reactive-adapters
 
 **역할**: JDK Flow ↔ Reactive Streams 변환
@@ -439,6 +447,8 @@ class KotlinDurableStreamsClient(
 
 ## Spring 통합
 
+※ 아래 모듈은 참고 구현이며 빌드 대상이 아닙니다.
+
 ### durable-streams-spring-webflux
 
 **역할**: Spring WebFlux 서버 통합
@@ -512,6 +522,8 @@ durable-streams:
 ---
 
 ## Micronaut/Quarkus 통합
+
+※ 아래 모듈은 참고 구현이며 빌드 대상이 아닙니다.
 
 ### durable-streams-micronaut-server
 
@@ -662,19 +674,11 @@ rootProject.name = "durable-streams-java"
 include(
     "durable-streams-core",
     "durable-streams-client-jdk",
+    "durable-streams-json-spi",
+    "durable-streams-json-jackson",
     "durable-streams-server-spi",
     "durable-streams-server-core",
-    "durable-streams-json-jackson",
-    "durable-streams-reactive-adapters",
-    "durable-streams-client-reactor",
-    "durable-streams-client-rxjava3",
-    "durable-streams-kotlin",
-    "durable-streams-spring-webflux",
-    "durable-streams-spring-webmvc",
-    "durable-streams-spring-boot-starter",
-    "durable-streams-micronaut-server",
-    "durable-streams-quarkus-server",
-    "durable-streams-testkit"
+    "durable-streams-conformance-runner"
 )
 ```
 

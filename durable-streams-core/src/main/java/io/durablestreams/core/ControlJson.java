@@ -25,6 +25,12 @@ public final class ControlJson {
         return new Control(next, cursor);
     }
 
+    public static boolean parseUpToDate(String json) {
+        if (json == null) return false;
+        Boolean value = extractBoolean(json, "upToDate");
+        return Boolean.TRUE.equals(value);
+    }
+
     private static String extractString(String json, String key) {
         String k = "\"" + key + "\"";
         int i = json.indexOf(k);
@@ -41,5 +47,21 @@ public final class ControlJson {
         if (q2 < 0) return null;
 
         return json.substring(q1 + 1, q2);
+    }
+
+    private static Boolean extractBoolean(String json, String key) {
+        String k = "\"" + key + "\"";
+        int i = json.indexOf(k);
+        if (i < 0) return null;
+        int colon = json.indexOf(':', i + k.length());
+        if (colon < 0) return null;
+
+        int p = colon + 1;
+        while (p < json.length() && Character.isWhitespace(json.charAt(p))) p++;
+        if (p >= json.length()) return null;
+
+        if (json.startsWith("true", p)) return Boolean.TRUE;
+        if (json.startsWith("false", p)) return Boolean.FALSE;
+        return null;
     }
 }
