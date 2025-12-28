@@ -747,7 +747,7 @@ public class TestStreamFactory {
 | 모듈 | 목표 커버리지 |
 |------|--------------|
 | durable-streams-core | 90%+ |
-| durable-streams-client-jdk | 85%+ |
+| durable-streams-client | 85%+ |
 | durable-streams-server-spi | 90%+ |
 | durable-streams-server-core | 85%+ |
 | Framework 통합 모듈 | 75%+ |

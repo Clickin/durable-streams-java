@@ -76,7 +76,7 @@ durable-streams-core
 ### Layer 1: Client & Server SPI
 
 ```
-durable-streams-client-jdk
+durable-streams-client
 ├── DurableStreamsClient.java       # 메인 인터페이스
 ├── JdkDurableStreamsClient.java    # JDK HttpClient 구현
 ├── LiveSubscription.java           # 실시간 구독 핸들

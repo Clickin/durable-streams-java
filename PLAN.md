@@ -360,7 +360,7 @@ durable-streams-java/
 | Phase | 기간 | 핵심 결과물 |
 |-------|------|-------------|
 | 1 | Week 1-2 | `durable-streams-core` 완성 |
-| 2 | Week 3-4 | `durable-streams-client-jdk` 완성 |
+| 2 | Week 3-4 | `durable-streams-client` 완성 |
 | 3 | Week 5-6 | `durable-streams-server-*` 완성 |
 | 4 | Week 7-8 | Spring 통합, Kotlin 지원 |
 | 5 | Week 9-10 | Conformance 통과, 릴리스 |

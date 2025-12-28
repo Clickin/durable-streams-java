@@ -9,7 +9,7 @@ Durable Streams Java 구현체의 모듈 구조와 각 모듈의 역할을 설�
 durable-streams-java/
 │
 ├── durable-streams-core/               # 프로토콜 기반 (의존성 0)
-├── durable-streams-client-jdk/         # JDK HttpClient 클라이언트
+├── durable-streams-client/         # JDK HttpClient 클라이언트
 ├── durable-streams-json-spi/           # JSON 직렬화/역직렬화 추상화
 ├── durable-streams-json-jackson/       # JSON mode (Jackson, 선택)
 ├── durable-streams-server-spi/         # 서버 스토리지 추상화
@@ -129,7 +129,7 @@ public sealed interface StreamEvent
 
 ---
 
-### durable-streams-client-jdk
+### durable-streams-client
 
 **역할**: JDK HttpClient 기반 클라이언트 구현
 
@@ -367,7 +367,7 @@ public final class FlowAdapters {
 
 ```kotlin
 dependencies {
-    api(project(":durable-streams-client-jdk"))
+    api(project(":durable-streams-client"))
     api(project(":durable-streams-reactive-adapters"))
     api("io.projectreactor:reactor-core:3.6.5")
 }
@@ -402,7 +402,7 @@ public class ReactorDurableStreamsClient {
 
 ```kotlin
 dependencies {
-    api(project(":durable-streams-client-jdk"))
+    api(project(":durable-streams-client"))
     api(project(":durable-streams-reactive-adapters"))
     api("io.reactivex.rxjava3:rxjava:3.1.8")
 }
@@ -418,7 +418,7 @@ dependencies {
 
 ```kotlin
 dependencies {
-    api(project(":durable-streams-client-jdk"))
+    api(project(":durable-streams-client"))
     api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
     api("org.jetbrains.kotlinx:kotlinx-coroutines-jdk9:1.8.0")
 }
@@ -673,7 +673,7 @@ rootProject.name = "durable-streams-java"
 
 include(
     "durable-streams-core",
-    "durable-streams-client-jdk",
+    "durable-streams-client",
     "durable-streams-json-spi",
     "durable-streams-json-jackson",
     "durable-streams-server-spi",

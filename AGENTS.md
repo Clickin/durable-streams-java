@@ -19,7 +19,7 @@ Durable Streams는 HTTP 기반의 append-only 바이트 스트림 프로토콜�
 ```
 durable-streams-java/
 ├── durable-streams-core/           # 프로토콜 상수, 모델, 유틸리티
-├── durable-streams-client-jdk/     # JDK HttpClient 기반 클라이언트
+├── durable-streams-client/     # JDK HttpClient 기반 클라이언트
 ├── durable-streams-server-spi/     # 서버 스토리지/정책 추상화
 ├── durable-streams-server-core/    # 프로토콜 엔진 (프레임워크 독립)
 ├── durable-streams-json-jackson/   # JSON mode 지원

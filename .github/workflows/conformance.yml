@@ -1,0 +1,39 @@
+name: Conformance Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: conformance-node/package-lock.json
+
+      - name: Install conformance node dependencies
+        run: npm ci --prefix conformance-node
+
+      - name: Run server conformance tests
+        run: ./conformance-test.sh
+
+      - name: Run client conformance tests
+        run: ./conformance-client-test.sh

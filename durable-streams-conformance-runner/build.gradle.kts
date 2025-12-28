@@ -13,9 +13,9 @@ java {
 
 dependencies {
     implementation(project(":durable-streams-server-core"))
-    implementation(project(":durable-streams-client-jdk"))
+    implementation(project(":durable-streams-client"))
+    implementation(project(":durable-streams-json-spi"))
     implementation(project(":durable-streams-json-jackson"))
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.18.2")
     implementation(libs.javalin)
     implementation("org.slf4j:slf4j-simple:2.0.16")
 }

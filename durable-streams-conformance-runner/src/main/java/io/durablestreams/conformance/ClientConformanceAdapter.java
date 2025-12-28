@@ -1,22 +1,21 @@
 package io.durablestreams.conformance;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.durablestreams.client.jdk.AppendRequest;
-import io.durablestreams.client.jdk.AppendResult;
-import io.durablestreams.client.jdk.CreateRequest;
-import io.durablestreams.client.jdk.CreateResult;
-import io.durablestreams.client.jdk.DurableStreamsClient;
-import io.durablestreams.client.jdk.HeadResult;
-import io.durablestreams.client.jdk.LiveLongPollRequest;
-import io.durablestreams.client.jdk.LiveSseRequest;
-import io.durablestreams.client.jdk.ReadRequest;
-import io.durablestreams.client.jdk.ReadResult;
+import io.durablestreams.client.AppendRequest;
+import io.durablestreams.client.AppendResult;
+import io.durablestreams.client.CreateRequest;
+import io.durablestreams.client.CreateResult;
+import io.durablestreams.client.DurableStreamsClient;
+import io.durablestreams.client.HeadResult;
+import io.durablestreams.client.LiveLongPollRequest;
+import io.durablestreams.client.LiveSseRequest;
+import io.durablestreams.client.ReadRequest;
+import io.durablestreams.client.ReadResult;
 import io.durablestreams.core.Offset;
 import io.durablestreams.core.Protocol;
 import io.durablestreams.core.StreamEvent;
+import io.durablestreams.json.jackson.JacksonJsonCodec;
+import io.durablestreams.json.spi.JsonCodec;
+import io.durablestreams.json.spi.JsonException;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -26,8 +25,10 @@ import java.net.http.HttpTimeoutException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow;
@@ -37,7 +38,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 public final class ClientConformanceAdapter {
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final JsonCodec JSON = new JacksonJsonCodec();
     private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
     private static final int DEFAULT_TIMEOUT_MS = 5000;
     private static final int DEFAULT_MAX_CHUNKS = 100;
@@ -66,9 +67,9 @@ public final class ClientConformanceAdapter {
             }
 
             String commandType = null;
-            ObjectNode result;
+            Map<String, Object> result;
             try {
-                JsonNode command = MAPPER.readTree(line);
+                Map<String, Object> command = readCommand(line);
                 commandType = text(command, "type");
                 result = handleCommand(command);
             } catch (Exception e) {
@@ -76,7 +77,7 @@ public final class ClientConformanceAdapter {
                         "Failed to parse command: " + e.getMessage());
             }
 
-            utf8Out.println(MAPPER.writeValueAsString(result));
+            utf8Out.println(JSON.writeString(result));
 
             if ("shutdown".equals(commandType)) {
                 break;
@@ -84,7 +85,16 @@ public final class ClientConformanceAdapter {
         }
     }
 
-    private ObjectNode handleCommand(JsonNode command) {
+    private Map<String, Object> readCommand(String json) throws JsonException {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> command = JSON.readValue(json, Map.class);
+        if (command == null) {
+            return Map.of();
+        }
+        return command;
+    }
+
+    private Map<String, Object> handleCommand(Map<String, Object> command) {
         String type = text(command, "type");
         if (type == null) {
             return errorNode("init", null, "PARSE_ERROR", "Missing command type");
@@ -109,25 +119,26 @@ public final class ClientConformanceAdapter {
         }
     }
 
-    private ObjectNode handleInit(JsonNode command) {
+    private Map<String, Object> handleInit(Map<String, Object> command) {
         this.serverUrl = text(command, "serverUrl");
         contentTypes.clear();
 
-        ObjectNode result = successNode("init");
+        Map<String, Object> result = successNode("init");
         result.put("clientName", "durable-streams-java-jdk");
         result.put("clientVersion", "dev");
 
-        ObjectNode features = result.putObject("features");
+        Map<String, Object> features = new LinkedHashMap<>();
         features.put("batching", false);
         features.put("sse", true);
         features.put("longPoll", true);
         features.put("streaming", true);
         features.put("dynamicHeaders", false);
+        result.put("features", features);
 
         return result;
     }
 
-    private ObjectNode handleCreate(JsonNode command) throws Exception {
+    private Map<String, Object> handleCreate(Map<String, Object> command) throws Exception {
         String path = require(command, "path");
         URI uri = resolveStreamUri(path);
         String contentType = text(command, "contentType");
@@ -135,7 +146,7 @@ public final class ClientConformanceAdapter {
             contentType = DEFAULT_CONTENT_TYPE;
         }
 
-        Map<String, String> headers = mergeHeaders(command.get("headers"));
+        Map<String, String> headers = mergeHeaders(mapValue(command, "headers"));
         Long ttlSeconds = longValue(command, "ttlSeconds");
         if (ttlSeconds != null) {
             headers.put(Protocol.H_STREAM_TTL, ttlSeconds.toString());
@@ -154,7 +165,7 @@ public final class ClientConformanceAdapter {
 
         contentTypes.put(path, contentType);
 
-        ObjectNode out = successNode("create");
+        Map<String, Object> out = successNode("create");
         out.put("status", result.status());
         if (result.nextOffset() != null) {
             out.put("offset", result.nextOffset().value());
@@ -162,7 +173,7 @@ public final class ClientConformanceAdapter {
         return out;
     }
 
-    private ObjectNode handleConnect(JsonNode command) throws Exception {
+    private Map<String, Object> handleConnect(Map<String, Object> command) throws Exception {
         String path = require(command, "path");
         URI uri = resolveStreamUri(path);
 
@@ -175,7 +186,7 @@ public final class ClientConformanceAdapter {
             contentTypes.put(path, head.contentType());
         }
 
-        ObjectNode out = successNode("connect");
+        Map<String, Object> out = successNode("connect");
         out.put("status", 200);
         if (head.nextOffset() != null) {
             out.put("offset", head.nextOffset().value());
@@ -183,7 +194,7 @@ public final class ClientConformanceAdapter {
         return out;
     }
 
-    private ObjectNode handleAppend(JsonNode command) throws Exception {
+    private Map<String, Object> handleAppend(Map<String, Object> command) throws Exception {
         String path = require(command, "path");
         URI uri = resolveStreamUri(path);
 
@@ -192,7 +203,7 @@ public final class ClientConformanceAdapter {
             contentType = resolveContentTypeFallback(uri, path);
         }
 
-        Map<String, String> headers = mergeHeaders(command.get("headers"));
+        Map<String, String> headers = mergeHeaders(mapValue(command, "headers"));
         Long seq = longValue(command, "seq");
         if (seq != null) {
             headers.put(Protocol.H_STREAM_SEQ, seq.toString());
@@ -210,7 +221,7 @@ public final class ClientConformanceAdapter {
             return errorForStatus("append", result.status(), command);
         }
 
-        ObjectNode out = successNode("append");
+        Map<String, Object> out = successNode("append");
         out.put("status", normalizeSuccessStatus(result.status()));
         if (result.nextOffset() != null) {
             out.put("offset", result.nextOffset().value());
@@ -218,7 +229,7 @@ public final class ClientConformanceAdapter {
         return out;
     }
 
-    private ObjectNode handleRead(JsonNode command) throws Exception {
+    private Map<String, Object> handleRead(Map<String, Object> command) throws Exception {
         String path = require(command, "path");
         URI uri = resolveStreamUri(path);
 
@@ -243,7 +254,7 @@ public final class ClientConformanceAdapter {
         return readCatchUp(uri, offset);
     }
 
-    private ObjectNode readCatchUp(URI uri, Offset offset) throws Exception {
+    private Map<String, Object> readCatchUp(URI uri, Offset offset) throws Exception {
         ReadRequest request = new ReadRequest(uri, offset, null);
         ReadResult result = executeWithRetries(() -> client.readCatchUp(request), ReadResult::status);
 
@@ -251,17 +262,19 @@ public final class ClientConformanceAdapter {
             return errorForStatus("read", result.status(), null);
         }
 
-        ObjectNode out = successNode("read");
+        Map<String, Object> out = successNode("read");
         out.put("status", 200);
-        ArrayNode chunks = out.putArray("chunks");
+        List<Map<String, Object>> chunks = new ArrayList<>();
+        out.put("chunks", chunks);
 
         byte[] body = result.body();
         if (body != null && body.length > 0) {
-            ObjectNode chunk = chunks.addObject();
+            Map<String, Object> chunk = new LinkedHashMap<>();
             chunk.put("data", new String(body, StandardCharsets.UTF_8));
             if (result.nextOffset() != null) {
                 chunk.put("offset", result.nextOffset().value());
             }
+            chunks.add(chunk);
         }
 
         if (result.nextOffset() != null) {
@@ -271,7 +284,7 @@ public final class ClientConformanceAdapter {
         return out;
     }
 
-    private ObjectNode readLive(
+    private Map<String, Object> readLive(
             URI uri,
             Offset offset,
             boolean sse,
@@ -360,16 +373,18 @@ public final class ClientConformanceAdapter {
             upToDate = true;
         }
 
-        ObjectNode out = successNode("read");
+        Map<String, Object> out = successNode("read");
         out.put("status", 200);
-        ArrayNode chunks = out.putArray("chunks");
+        List<Map<String, Object>> chunks = new ArrayList<>();
         for (Chunk chunk : state.chunks) {
-            ObjectNode c = chunks.addObject();
+            Map<String, Object> c = new LinkedHashMap<>();
             c.put("data", chunk.data);
             if (chunk.offset != null) {
                 c.put("offset", chunk.offset);
             }
+            chunks.add(c);
         }
+        out.put("chunks", chunks);
 
         String finalOffset = state.lastOffset.get();
         if (finalOffset == null && offset != null) {
@@ -382,7 +397,7 @@ public final class ClientConformanceAdapter {
         return out;
     }
 
-    private ObjectNode handleHead(JsonNode command) throws Exception {
+    private Map<String, Object> handleHead(Map<String, Object> command) throws Exception {
         String path = require(command, "path");
         URI uri = resolveStreamUri(path);
 
@@ -395,7 +410,7 @@ public final class ClientConformanceAdapter {
             contentTypes.put(path, result.contentType());
         }
 
-        ObjectNode out = successNode("head");
+        Map<String, Object> out = successNode("head");
         out.put("status", 200);
         if (result.nextOffset() != null) {
             out.put("offset", result.nextOffset().value());
@@ -412,7 +427,7 @@ public final class ClientConformanceAdapter {
         return out;
     }
 
-    private ObjectNode handleDelete(JsonNode command) throws Exception {
+    private Map<String, Object> handleDelete(Map<String, Object> command) throws Exception {
         String path = require(command, "path");
         URI uri = resolveStreamUri(path);
 
@@ -424,17 +439,23 @@ public final class ClientConformanceAdapter {
         client.delete(uri);
         contentTypes.remove(path);
 
-        ObjectNode out = successNode("delete");
+        Map<String, Object> out = successNode("delete");
         out.put("status", 200);
         return out;
     }
 
-    private static String text(JsonNode node, String field) {
-        JsonNode child = node == null ? null : node.get(field);
-        return child == null || child.isNull() ? null : child.asText();
+    private static String text(Map<String, Object> node, String field) {
+        Object value = node == null ? null : node.get(field);
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof String s) {
+            return s;
+        }
+        return String.valueOf(value);
     }
 
-    private static String require(JsonNode node, String field) {
+    private static String require(Map<String, Object> node, String field) {
         String value = text(node, field);
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException("Missing required field: " + field);
@@ -442,25 +463,54 @@ public final class ClientConformanceAdapter {
         return value;
     }
 
-    private static Long longValue(JsonNode node, String field) {
-        JsonNode child = node == null ? null : node.get(field);
-        if (child == null || child.isNull()) {
+    private static Long longValue(Map<String, Object> node, String field) {
+        Object value = node == null ? null : node.get(field);
+        if (value == null) {
             return null;
         }
-        return child.asLong();
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        try {
+            return Long.parseLong(value.toString());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
-    private static int intValue(JsonNode node, String field, int defaultValue) {
-        JsonNode child = node == null ? null : node.get(field);
-        if (child == null || child.isNull()) {
+    private static int intValue(Map<String, Object> node, String field, int defaultValue) {
+        Object value = node == null ? null : node.get(field);
+        if (value == null) {
             return defaultValue;
         }
-        return child.asInt(defaultValue);
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        try {
+            return Integer.parseInt(value.toString());
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
     }
 
-    private static boolean booleanValue(JsonNode node, String field) {
-        JsonNode child = node == null ? null : node.get(field);
-        return child != null && !child.isNull() && child.asBoolean();
+    private static boolean booleanValue(Map<String, Object> node, String field) {
+        Object value = node == null ? null : node.get(field);
+        if (value == null) {
+            return false;
+        }
+        if (value instanceof Boolean b) {
+            return b;
+        }
+        return Boolean.parseBoolean(value.toString());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> mapValue(Map<String, Object> node, String field) {
+        Object value = node == null ? null : node.get(field);
+        if (value instanceof Map<?, ?> map) {
+            return (Map<String, Object>) map;
+        }
+        return null;
     }
 
     private static Offset parseOffset(String offset) {
@@ -470,14 +520,14 @@ public final class ClientConformanceAdapter {
         return new Offset(offset);
     }
 
-    private Map<String, String> mergeHeaders(JsonNode headersNode) {
+    private Map<String, String> mergeHeaders(Map<String, Object> headersNode) {
         Map<String, String> headers = new LinkedHashMap<>();
-        if (headersNode != null && headersNode.isObject()) {
-            headersNode.fields().forEachRemaining(entry -> {
-                if (entry.getValue() != null && !entry.getValue().isNull()) {
-                    headers.put(entry.getKey(), entry.getValue().asText());
+        if (headersNode != null) {
+            for (Map.Entry<String, Object> entry : headersNode.entrySet()) {
+                if (entry.getValue() != null) {
+                    headers.put(entry.getKey(), entry.getValue().toString());
                 }
-            });
+            }
         }
         return headers;
     }
@@ -502,7 +552,7 @@ public final class ClientConformanceAdapter {
         return DEFAULT_CONTENT_TYPE;
     }
 
-    private static byte[] decodeBody(JsonNode command) {
+    private static byte[] decodeBody(Map<String, Object> command) {
         String data = text(command, "data");
         if (data == null) {
             data = "";
@@ -521,20 +571,20 @@ public final class ClientConformanceAdapter {
         return new String(bytes, StandardCharsets.UTF_8);
     }
 
-    private static ObjectNode successNode(String type) {
-        ObjectNode node = MAPPER.createObjectNode();
+    private static Map<String, Object> successNode(String type) {
+        Map<String, Object> node = new LinkedHashMap<>();
         node.put("type", type);
         node.put("success", true);
         return node;
     }
 
-    private static ObjectNode errorForStatus(String commandType, int status, JsonNode command) {
+    private static Map<String, Object> errorForStatus(String commandType, int status, Map<String, Object> command) {
         String code = errorCodeForStatus(commandType, status, command);
         return errorNode(commandType, status, code, "HTTP " + status);
     }
 
-    private static ObjectNode errorNode(String commandType, Integer status, String errorCode, String message) {
-        ObjectNode node = MAPPER.createObjectNode();
+    private static Map<String, Object> errorNode(String commandType, Integer status, String errorCode, String message) {
+        Map<String, Object> node = new LinkedHashMap<>();
         node.put("type", "error");
         node.put("success", false);
         node.put("commandType", commandType);
@@ -546,7 +596,7 @@ public final class ClientConformanceAdapter {
         return node;
     }
 
-    private static ObjectNode errorFromException(String commandType, Throwable error) {
+    private static Map<String, Object> errorFromException(String commandType, Throwable error) {
         String code = "INTERNAL_ERROR";
         String message = error.getMessage() == null ? error.toString() : error.getMessage();
         Integer status = null;
@@ -587,12 +637,12 @@ public final class ClientConformanceAdapter {
                 || error instanceof java.net.UnknownHostException;
     }
 
-    private static String errorCodeForStatus(String commandType, int status, JsonNode command) {
+    private static String errorCodeForStatus(String commandType, int status, Map<String, Object> command) {
         if (status == 404 || status == 410) {
             return "NOT_FOUND";
         }
         if (status == 409) {
-            if ("append".equals(commandType) && command != null && command.hasNonNull("seq")) {
+            if ("append".equals(commandType) && command != null && command.containsKey("seq")) {
                 return "SEQUENCE_CONFLICT";
             }
             return "CONFLICT";
@@ -670,7 +720,7 @@ public final class ClientConformanceAdapter {
     }
 
     private static final class LiveReadState {
-        private final java.util.List<Chunk> chunks = new java.util.ArrayList<>();
+        private final List<Chunk> chunks = new ArrayList<>();
         private final AtomicInteger chunkCount = new AtomicInteger();
         private final AtomicReference<String> lastOffset = new AtomicReference<>();
         private final AtomicBoolean upToDate = new AtomicBoolean(false);
