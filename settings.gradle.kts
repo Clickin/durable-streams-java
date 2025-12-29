@@ -11,6 +11,7 @@ include(
   "durable-streams-spring-webflux",
   "durable-streams-micronaut",
   "durable-streams-quarkus",
-  "durable-streams-conformance-runner"
+  "durable-streams-conformance-runner",
+  "durable-streams-benchmarks"
 )
 

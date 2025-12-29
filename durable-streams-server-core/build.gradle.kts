@@ -14,6 +14,18 @@ dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
-tasks.withType<JavaCompile>().configureEach {
+tasks.named<JavaCompile>("compileJava").configure {
     options.release.set(17)
+}
+
+tasks.named<JavaCompile>("compileTestJava").configure {
+    options.release.set(17)
+}
+
+sourceSets {
+    test {
+        java {
+            exclude("**/StorageBenchmark.java")
+        }
+    }
 }

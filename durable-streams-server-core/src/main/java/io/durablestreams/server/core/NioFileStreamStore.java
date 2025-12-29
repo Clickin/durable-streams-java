@@ -17,7 +17,6 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Asynchronous file-based {@link AsyncStreamStore} using Java NIO.
@@ -57,8 +56,8 @@ public final class NioFileStreamStore implements AsyncStreamStore {
     private final Clock clock;
     private final ScheduledExecutorService scheduler;
 
-    // Per-stream state for coordinating waiters
     private final ConcurrentHashMap<URI, StreamState> streams = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<URI, Semaphore> appendSemaphores = new ConcurrentHashMap<>();
 
     /**
      * Creates a new NIO file stream store.
@@ -183,6 +182,8 @@ public final class NioFileStreamStore implements AsyncStreamStore {
 
         CompletableFuture<AppendOutcome> result = new CompletableFuture<>();
 
+        Semaphore appendSemaphore = appendSemaphores.computeIfAbsent(url, u -> new Semaphore(1));
+        appendSemaphore.acquireUninterruptibly();
         try {
             StreamMeta meta = readMetaSync(metaPath);
             Instant now = clock.instant();
@@ -190,6 +191,7 @@ public final class NioFileStreamStore implements AsyncStreamStore {
             if (meta.isExpired(now)) {
                 deleteStreamDir(streamDir);
                 streams.remove(url);
+                appendSemaphores.remove(url);
                 result.complete(new AppendOutcome(AppendOutcome.Status.NOT_FOUND, null, "stream expired"));
                 return result;
             }
@@ -199,70 +201,58 @@ public final class NioFileStreamStore implements AsyncStreamStore {
                 return result;
             }
 
-            // Get or create stream state for locking
             StreamState state = streams.computeIfAbsent(url, u -> new StreamState(streamDir, meta));
-            ReentrantLock lock = state.getAppendLock();
 
-            // Acquire lock to serialize appends per stream
-            lock.lock();
-            try {
-                // Get current file size for append position (inside lock)
-                long currentSize = Files.size(dataPath);
-                int totalBytes = body.remaining();
+            long currentSize = Files.size(dataPath);
+            int totalBytes = body.remaining();
 
-                // Open channel for async write
-                AsynchronousFileChannel channel = AsynchronousFileChannel.open(
-                        dataPath,
-                        StandardOpenOption.WRITE
-                );
+            AsynchronousFileChannel channel = AsynchronousFileChannel.open(
+                    dataPath,
+                    StandardOpenOption.WRITE
+            );
 
-                // Start async write with partial write handling
-                writeWithRetry(channel, body, currentSize, 0, totalBytes, new CompletionHandler<Void, Void>() {
-                    @Override
-                    public void completed(Void v, Void attachment) {
-                        try {
-                            channel.close();
+            writeWithRetry(channel, body, currentSize, 0, totalBytes, new CompletionHandler<Void, Void>() {
+                @Override
+                public void completed(Void v, Void attachment) {
+                    try {
+                        channel.close();
 
-                            long newSize = currentSize + totalBytes;
-                            Offset nextOffset = new Offset(LexiLong.encode(newSize));
+                        long newSize = currentSize + totalBytes;
+                        Offset nextOffset = new Offset(LexiLong.encode(newSize));
 
-                            // Update metadata
-                            StreamMeta newMeta = meta.withNextOffset(nextOffset);
-                            writeMetaSync(metaPath, newMeta);
+                        StreamMeta newMeta = meta.withNextOffset(nextOffset);
+                        writeMetaSync(metaPath, newMeta);
 
-                            // Update state and notify waiters
-                            state.updateOffset(nextOffset);
-                            state.notifyWaiters();
+                        state.updateOffset(nextOffset);
+                        state.notifyWaiters();
 
-                            result.complete(new AppendOutcome(AppendOutcome.Status.APPENDED, nextOffset, null));
-                        } catch (IOException e) {
-                            result.completeExceptionally(e);
-                        } finally {
-                            // Release lock after write completes
-                            lock.unlock();
-                        }
+                        result.complete(new AppendOutcome(AppendOutcome.Status.APPENDED, nextOffset, null));
+                    } catch (IOException e) {
+                        result.completeExceptionally(e);
+                    } finally {
+                        appendSemaphore.release();
                     }
+                }
 
-                    @Override
-                    public void failed(Throwable exc, Void attachment) {
-                        try {
-                            channel.close();
-                        } catch (IOException ignored) {
-                        } finally {
-                            // Release lock on failure
-                            lock.unlock();
-                        }
-                        result.completeExceptionally(exc);
+                @Override
+                public void failed(Throwable exc, Void attachment) {
+                    try {
+                        channel.close();
+                    } catch (IOException ignored) {
+                    } finally {
+                        appendSemaphore.release();
                     }
-                });
-            } catch (IOException e) {
-                lock.unlock();
-                throw e;
-            }
-
+                    result.completeExceptionally(exc);
+                }
+            });
         } catch (IOException e) {
             result.completeExceptionally(e);
+        } finally {
+            if (result.isDone()) {
+                appendSemaphore.release();
+            }
         }
+
 
         return result;
     }
@@ -305,6 +295,7 @@ public final class NioFileStreamStore implements AsyncStreamStore {
             try {
                 deleteStreamDir(streamDir);
                 StreamState state = streams.remove(url);
+                appendSemaphores.remove(url);
                 if (state != null) {
                     state.notifyWaiters(); // Wake up any waiters
                 }
@@ -508,15 +499,9 @@ public final class NioFileStreamStore implements AsyncStreamStore {
         private final Path streamDir;
         private final AtomicLong currentPosition;
         private final CopyOnWriteArrayList<CompletableFuture<Boolean>> waiters = new CopyOnWriteArrayList<>();
-        private final ReentrantLock appendLock = new ReentrantLock();
-
         StreamState(Path streamDir, StreamMeta meta) {
             this.streamDir = streamDir;
             this.currentPosition = new AtomicLong(decodeOffset(meta.nextOffset()));
-        }
-
-        ReentrantLock getAppendLock() {
-            return appendLock;
         }
 
         Offset currentOffset() {
@@ -607,14 +592,45 @@ public final class NioFileStreamStore implements AsyncStreamStore {
     }
 
     private StreamMeta readMetaSync(Path metaPath) throws IOException {
-        String json = Files.readString(metaPath, StandardCharsets.UTF_8);
-        return parseMetaJson(json);
+        for (int i = 0; i < 3; i++) {
+            String json = Files.readString(metaPath, StandardCharsets.UTF_8);
+            try {
+                return parseMetaJson(json);
+            } catch (RuntimeException e) {
+                if (i == 2) {
+                    throw e;
+                }
+                try {
+                    Thread.sleep(2L);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException("Read interrupted", interrupted);
+                }
+            }
+        }
+        throw new IOException("Failed to read metadata");
     }
 
     private void writeMetaSync(Path metaPath, StreamMeta meta) throws IOException {
         String json = toMetaJson(meta);
-        Files.writeString(metaPath, json, StandardCharsets.UTF_8,
+        Path tmpPath = Files.createTempFile(metaPath.getParent(), metaPath.getFileName().toString(), ".tmp");
+        Files.writeString(tmpPath, json, StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        try {
+            Files.move(tmpPath, metaPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (AtomicMoveNotSupportedException e) {
+            try {
+                Files.move(tmpPath, metaPath, StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException moveFailed) {
+                Files.writeString(metaPath, json, StandardCharsets.UTF_8,
+                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                Files.deleteIfExists(tmpPath);
+            }
+        } catch (IOException moveFailed) {
+            Files.writeString(metaPath, json, StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            Files.deleteIfExists(tmpPath);
+        }
     }
 
     private long writeDataSync(Path dataPath, ByteBuffer data, long position) throws IOException {

@@ -418,14 +418,45 @@ public final class BlockingFileStreamStore implements StreamStore {
     }
 
     private StreamMeta readMeta(Path metaPath) throws IOException {
-        String json = Files.readString(metaPath, StandardCharsets.UTF_8);
-        return parseMetaJson(json);
+        for (int i = 0; i < 3; i++) {
+            String json = Files.readString(metaPath, StandardCharsets.UTF_8);
+            try {
+                return parseMetaJson(json);
+            } catch (RuntimeException e) {
+                if (i == 2) {
+                    throw e;
+                }
+                try {
+                    Thread.sleep(2L);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException("Read interrupted", interrupted);
+                }
+            }
+        }
+        throw new IOException("Failed to read metadata");
     }
 
     private void writeMeta(Path metaPath, StreamMeta meta) throws IOException {
         String json = toMetaJson(meta);
-        Files.writeString(metaPath, json, StandardCharsets.UTF_8,
+        Path tmpPath = Files.createTempFile(metaPath.getParent(), metaPath.getFileName().toString(), ".tmp");
+        Files.writeString(tmpPath, json, StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        try {
+            Files.move(tmpPath, metaPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (AtomicMoveNotSupportedException e) {
+            try {
+                Files.move(tmpPath, metaPath, StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException moveFailed) {
+                Files.writeString(metaPath, json, StandardCharsets.UTF_8,
+                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                Files.deleteIfExists(tmpPath);
+            }
+        } catch (IOException moveFailed) {
+            Files.writeString(metaPath, json, StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            Files.deleteIfExists(tmpPath);
+        }
     }
 
     private String toMetaJson(StreamMeta meta) {
