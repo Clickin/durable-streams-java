@@ -237,9 +237,6 @@ public final class NioFileStreamStore implements AsyncStreamStore {
                             result.complete(new AppendOutcome(AppendOutcome.Status.APPENDED, nextOffset, null));
                         } catch (IOException e) {
                             result.completeExceptionally(e);
-                        } finally {
-                            // Release lock after write completes
-                            lock.unlock();
                         }
                     }
 
@@ -248,13 +245,14 @@ public final class NioFileStreamStore implements AsyncStreamStore {
                         try {
                             channel.close();
                         } catch (IOException ignored) {
-                        } finally {
-                            // Release lock on failure
-                            lock.unlock();
                         }
                         result.completeExceptionally(exc);
                     }
                 });
+
+                // Release lock after async write is initiated
+                // (lock protects file size read and write initiation, not the I/O itself)
+                lock.unlock();
             } catch (IOException e) {
                 lock.unlock();
                 throw e;
