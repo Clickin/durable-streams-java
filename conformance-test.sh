@@ -1,13 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-./gradlew :durable-streams-conformance-runner:runConformanceServer &
-SERVER_PID=$!
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-cleanup() {
-  kill "$SERVER_PID" 2>/dev/null || true
-}
-trap cleanup EXIT
-
-sleep 2
-npx @durable-streams/server-conformance-tests --run http://localhost:4437
+cd "${SCRIPT_DIR}/conformance-node"
+npm run test:server -- --reporter verbose
