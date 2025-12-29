@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Asynchronous file-based {@link AsyncStreamStore} using Java NIO.
@@ -198,57 +199,100 @@ public final class NioFileStreamStore implements AsyncStreamStore {
                 return result;
             }
 
-            // Get current file size for append position
-            long currentSize = Files.size(dataPath);
+            // Get or create stream state for locking
+            StreamState state = streams.computeIfAbsent(url, u -> new StreamState(streamDir, meta));
+            ReentrantLock lock = state.getAppendLock();
 
-            // Open channel for async write
-            AsynchronousFileChannel channel = AsynchronousFileChannel.open(
-                    dataPath,
-                    StandardOpenOption.WRITE
-            );
+            // Acquire lock to serialize appends per stream
+            lock.lock();
+            try {
+                // Get current file size for append position (inside lock)
+                long currentSize = Files.size(dataPath);
+                int totalBytes = body.remaining();
 
-            // Async write
-            channel.write(body, currentSize, null, new CompletionHandler<Integer, Void>() {
-                @Override
-                public void completed(Integer bytesWritten, Void attachment) {
-                    try {
-                        channel.close();
+                // Open channel for async write
+                AsynchronousFileChannel channel = AsynchronousFileChannel.open(
+                        dataPath,
+                        StandardOpenOption.WRITE
+                );
 
-                        long newSize = currentSize + bytesWritten;
-                        Offset nextOffset = new Offset(LexiLong.encode(newSize));
+                // Start async write with partial write handling
+                writeWithRetry(channel, body, currentSize, 0, totalBytes, new CompletionHandler<Void, Void>() {
+                    @Override
+                    public void completed(Void v, Void attachment) {
+                        try {
+                            channel.close();
 
-                        // Update metadata
-                        StreamMeta newMeta = meta.withNextOffset(nextOffset);
-                        writeMetaSync(metaPath, newMeta);
+                            long newSize = currentSize + totalBytes;
+                            Offset nextOffset = new Offset(LexiLong.encode(newSize));
 
-                        // Notify waiters
-                        StreamState state = streams.get(url);
-                        if (state != null) {
+                            // Update metadata
+                            StreamMeta newMeta = meta.withNextOffset(nextOffset);
+                            writeMetaSync(metaPath, newMeta);
+
+                            // Update state and notify waiters
                             state.updateOffset(nextOffset);
                             state.notifyWaiters();
+
+                            result.complete(new AppendOutcome(AppendOutcome.Status.APPENDED, nextOffset, null));
+                        } catch (IOException e) {
+                            result.completeExceptionally(e);
+                        } finally {
+                            // Release lock after write completes
+                            lock.unlock();
                         }
-
-                        result.complete(new AppendOutcome(AppendOutcome.Status.APPENDED, nextOffset, null));
-                    } catch (IOException e) {
-                        result.completeExceptionally(e);
                     }
-                }
 
-                @Override
-                public void failed(Throwable exc, Void attachment) {
-                    try {
-                        channel.close();
-                    } catch (IOException ignored) {
+                    @Override
+                    public void failed(Throwable exc, Void attachment) {
+                        try {
+                            channel.close();
+                        } catch (IOException ignored) {
+                        } finally {
+                            // Release lock on failure
+                            lock.unlock();
+                        }
+                        result.completeExceptionally(exc);
                     }
-                    result.completeExceptionally(exc);
-                }
-            });
+                });
+            } catch (IOException e) {
+                lock.unlock();
+                throw e;
+            }
 
         } catch (IOException e) {
             result.completeExceptionally(e);
         }
 
         return result;
+    }
+
+    /**
+     * Writes buffer to channel with retry logic to handle partial writes.
+     * Continues writing until all bytes are written or an error occurs.
+     */
+    private void writeWithRetry(AsynchronousFileChannel channel, ByteBuffer buffer,
+                                long startPosition, long bytesWrittenSoFar, int totalBytes,
+                                CompletionHandler<Void, Void> finalHandler) {
+        channel.write(buffer, startPosition + bytesWrittenSoFar, null,
+                new CompletionHandler<Integer, Void>() {
+                    @Override
+                    public void completed(Integer bytesWritten, Void attachment) {
+                        long newTotal = bytesWrittenSoFar + bytesWritten;
+                        if (buffer.hasRemaining()) {
+                            // Partial write - continue with remaining bytes
+                            writeWithRetry(channel, buffer, startPosition, newTotal, totalBytes, finalHandler);
+                        } else {
+                            // All bytes written
+                            finalHandler.completed(null, null);
+                        }
+                    }
+
+                    @Override
+                    public void failed(Throwable exc, Void attachment) {
+                        finalHandler.failed(exc, null);
+                    }
+                });
     }
 
     @Override
@@ -464,10 +508,15 @@ public final class NioFileStreamStore implements AsyncStreamStore {
         private final Path streamDir;
         private final AtomicLong currentPosition;
         private final CopyOnWriteArrayList<CompletableFuture<Boolean>> waiters = new CopyOnWriteArrayList<>();
+        private final ReentrantLock appendLock = new ReentrantLock();
 
         StreamState(Path streamDir, StreamMeta meta) {
             this.streamDir = streamDir;
             this.currentPosition = new AtomicLong(decodeOffset(meta.nextOffset()));
+        }
+
+        ReentrantLock getAppendLock() {
+            return appendLock;
         }
 
         Offset currentOffset() {
