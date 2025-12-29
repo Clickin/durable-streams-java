@@ -4,7 +4,10 @@ import io.durablestreams.server.core.DurableStreamsHandler;
 import io.durablestreams.server.core.HttpMethod;
 import io.durablestreams.server.core.ResponseBody;
 import io.durablestreams.server.core.SseFrame;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.support.ResourceRegion;
 import org.springframework.http.MediaType;
+import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Flux;
@@ -49,6 +52,10 @@ public final class DurableStreamsWebFluxAdapter {
         }
         if (body instanceof ResponseBody.Bytes bytes) {
             return builder.bodyValue(bytes.bytes());
+        }
+        if (body instanceof ResponseBody.FileRegion region) {
+            ResourceRegion resourceRegion = new ResourceRegion(new FileSystemResource(region.region().path()), region.region().position(), region.region().length());
+            return builder.body(BodyInserters.fromResource(resourceRegion));
         }
         if (body instanceof ResponseBody.Sse sse) {
             Flux<String> stream = fluxFrom(sse.publisher()).map(SseFrame::render);

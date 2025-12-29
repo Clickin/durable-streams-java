@@ -1,6 +1,6 @@
 # durable-streams-java
 
-Java 17 implementation of the Durable Streams protocol.
+Java 17+ implementation of the Durable Streams protocol (Java 21+ recommended for virtual threads).
 
 ## Built modules
 

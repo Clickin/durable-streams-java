@@ -73,6 +73,11 @@ public final class ConformanceServer {
             return;
         }
 
+        if (response.body() instanceof ResponseBody.FileRegion region) {
+            writeFileRegion(ctx, region.region());
+            return;
+        }
+
         if (response.body() instanceof ResponseBody.Sse sse) {
             ctx.contentType("text/event-stream");
             writeSse(ctx, sse.publisher());
@@ -131,6 +136,12 @@ public final class ConformanceServer {
             done.await(70, TimeUnit.SECONDS);
         } catch (InterruptedException ignored) {
             Thread.currentThread().interrupt();
+        }
+    }
+
+    private static void writeFileRegion(Context ctx, io.durablestreams.server.spi.ReadOutcome.FileRegion region) throws IOException {
+        try (var channel = java.nio.channels.FileChannel.open(region.path(), java.nio.file.StandardOpenOption.READ)) {
+            channel.transferTo(region.position(), region.length(), java.nio.channels.Channels.newChannel(ctx.res().getOutputStream()));
         }
     }
 }

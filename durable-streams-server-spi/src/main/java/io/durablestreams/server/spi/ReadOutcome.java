@@ -24,6 +24,7 @@ public final class ReadOutcome {
     private final boolean upToDate;
     private final String etag;
     private final Optional<String> streamCursor;
+    private final FileRegion fileRegion;
 
     public ReadOutcome(
             Status status,
@@ -34,6 +35,19 @@ public final class ReadOutcome {
             String etag,
             String streamCursor
     ) {
+        this(status, body, contentType, nextOffset, upToDate, etag, streamCursor, null);
+    }
+
+    public ReadOutcome(
+            Status status,
+            byte[] body,
+            String contentType,
+            Offset nextOffset,
+            boolean upToDate,
+            String etag,
+            String streamCursor,
+            FileRegion fileRegion
+    ) {
         this.status = Objects.requireNonNull(status, "status");
         this.body = body;
         this.contentType = contentType;
@@ -41,7 +55,9 @@ public final class ReadOutcome {
         this.upToDate = upToDate;
         this.etag = etag;
         this.streamCursor = Optional.ofNullable(streamCursor);
+        this.fileRegion = fileRegion;
     }
+
 
     public Status status() {
         return status;
@@ -70,4 +86,17 @@ public final class ReadOutcome {
     public Optional<String> streamCursor() {
         return streamCursor;
     }
+
+    public Optional<FileRegion> fileRegion() {
+        return Optional.ofNullable(fileRegion);
+    }
+
+    public record FileRegion(java.nio.file.Path path, long position, int length) {
+        public FileRegion {
+            Objects.requireNonNull(path, "path");
+            if (position < 0) throw new IllegalArgumentException("position must be non-negative");
+            if (length < 0) throw new IllegalArgumentException("length must be non-negative");
+        }
+    }
+
 }

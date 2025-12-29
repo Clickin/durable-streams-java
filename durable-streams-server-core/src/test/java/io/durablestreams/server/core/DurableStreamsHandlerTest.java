@@ -48,9 +48,9 @@ class DurableStreamsHandlerTest {
                 null
         ));
         assertThat(read.status()).isEqualTo(200);
-        assertThat(read.body()).isInstanceOf(ResponseBody.Bytes.class);
-        byte[] bytes = ((ResponseBody.Bytes) read.body()).bytes();
+        byte[] bytes = readBodyBytes(read.body());
         assertThat(new String(bytes)).isEqualTo("helloworld");
+
         assertThat(firstHeader(read, Protocol.H_STREAM_UP_TO_DATE)).isEqualTo("true");
     }
 
@@ -234,4 +234,27 @@ class DurableStreamsHandlerTest {
         if (values == null || values.isEmpty()) return null;
         return values.get(0);
     }
+
+    private static byte[] readBodyBytes(ResponseBody body) {
+        if (body instanceof ResponseBody.Bytes bytes) {
+            return bytes.bytes();
+        }
+        if (body instanceof ResponseBody.FileRegion region) {
+            io.durablestreams.server.spi.ReadOutcome.FileRegion fileRegion = region.region();
+            try (var channel = java.nio.channels.FileChannel.open(fileRegion.path(), java.nio.file.StandardOpenOption.READ)) {
+                java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocate(fileRegion.length());
+                channel.position(fileRegion.position());
+                while (buffer.hasRemaining()) {
+                    if (channel.read(buffer) < 0) {
+                        break;
+                    }
+                }
+                return buffer.array();
+            } catch (java.io.IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return new byte[0];
+    }
 }
+

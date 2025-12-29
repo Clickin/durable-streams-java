@@ -11,15 +11,16 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Asynchronous storage abstraction for Durable Streams.
  *
- * <p>This is the non-blocking counterpart to {@link StreamStore}. All operations return
+ * <p>This is the async counterpart to {@link StreamStore}. All operations return
  * {@link CompletableFuture} and complete asynchronously without blocking the calling thread.
  *
- * <p>Implementations should use Java NIO ({@link java.nio.channels.AsynchronousFileChannel},
- * {@link java.nio.channels.AsynchronousSocketChannel}) or other async I/O mechanisms for
- * true non-blocking behavior.
+ * <p>Implementations may use virtual threads with blocking I/O, or true async I/O.
+ * On common platforms {@link java.nio.channels.AsynchronousFileChannel} uses a thread pool,
+ * so virtual threads are the recommended approach for scalable blocking I/O.
  *
  * <p>For adapting a blocking {@link StreamStore} to this interface, use
  * {@link BlockingToAsyncAdapter} which runs blocking operations on a provided executor.
+
  *
  * @see StreamStore
  * @see BlockingToAsyncAdapter

@@ -92,8 +92,9 @@ final class FlowingSsePublisher implements Flow.Publisher<SseFrame> {
                         return;
                     }
 
-                    byte[] body = out.body() == null ? new byte[0] : out.body();
-                    boolean hasBody = body.length > 0 && !isJsonEmptyArray(body, out.contentType());
+                    byte[] body = loadBodyBytes(out);
+                    boolean hasBody = body.length > 0;
+
 
                     Offset nextOffset = out.nextOffset();
                     if (!hasBody && out.upToDate()) {
@@ -135,7 +136,28 @@ final class FlowingSsePublisher implements Flow.Publisher<SseFrame> {
         }
     }
 
+    private static byte[] loadBodyBytes(ReadOutcome out) throws java.io.IOException {
+        if (out.body() != null) {
+            return out.body();
+        }
+        if (out.fileRegion().isEmpty()) {
+            return new byte[0];
+        }
+        ReadOutcome.FileRegion region = out.fileRegion().get();
+        try (java.nio.channels.FileChannel channel = java.nio.channels.FileChannel.open(region.path(), java.nio.file.StandardOpenOption.READ)) {
+            java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocate(region.length());
+            channel.position(region.position());
+            while (buffer.hasRemaining()) {
+                if (channel.read(buffer) < 0) {
+                    break;
+                }
+            }
+            return buffer.array();
+        }
+    }
+
     private static String renderControlJson(String streamNextOffset, String streamCursor, boolean upToDate) {
+
         StringBuilder sb = new StringBuilder();
         sb.append("{\"streamNextOffset\":\"").append(streamNextOffset).append("\"");
         if (streamCursor != null) {
@@ -148,17 +170,5 @@ final class FlowingSsePublisher implements Flow.Publisher<SseFrame> {
         return sb.toString();
     }
 
-    private static boolean isJsonEmptyArray(byte[] body, String contentType) {
-        if (!isJsonContentType(contentType)) return false;
-        if (body == null || body.length == 0) return true;
-        String trimmed = new String(body, java.nio.charset.StandardCharsets.UTF_8).trim();
-        return "[]".equals(trimmed);
-    }
 
-    private static boolean isJsonContentType(String contentType) {
-        if (contentType == null) return false;
-        int semi = contentType.indexOf(';');
-        String base = semi >= 0 ? contentType.substring(0, semi) : contentType;
-        return "application/json".equalsIgnoreCase(base.trim());
-    }
 }

@@ -377,10 +377,19 @@ public final class DurableStreamsHandler {
                     yield r;
                 }
 
-                byte[] body = out.body() == null ? new byte[0] : out.body();
-                ServerResponse r = new ServerResponse(200, new ResponseBody.Bytes(body))
-                        .header(Protocol.H_CONTENT_TYPE, out.contentType() == null ? "application/octet-stream" : out.contentType())
-                        .header(Protocol.H_STREAM_NEXT_OFFSET, out.nextOffset().value());
+                ServerResponse r;
+                if (out.fileRegion().isPresent()) {
+                    ResponseBody.FileRegion region = new ResponseBody.FileRegion(out.fileRegion().get());
+                    r = new ServerResponse(200, region)
+                            .header(Protocol.H_CONTENT_TYPE, out.contentType() == null ? "application/octet-stream" : out.contentType())
+                            .header(Protocol.H_STREAM_NEXT_OFFSET, out.nextOffset().value());
+                } else {
+                    byte[] body = out.body() == null ? new byte[0] : out.body();
+                    r = new ServerResponse(200, new ResponseBody.Bytes(body))
+                            .header(Protocol.H_CONTENT_TYPE, out.contentType() == null ? "application/octet-stream" : out.contentType())
+                            .header(Protocol.H_STREAM_NEXT_OFFSET, out.nextOffset().value());
+                }
+
 
                 if (etag != null) r.header(Protocol.H_ETAG, etag);
 

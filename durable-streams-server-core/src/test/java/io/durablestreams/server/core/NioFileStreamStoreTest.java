@@ -59,8 +59,10 @@ class NioFileStreamStoreTest {
                 .get(5, TimeUnit.SECONDS);
 
         assertThat(read.status()).isEqualTo(ReadOutcome.Status.OK);
-        assertThat(new String(read.body(), StandardCharsets.UTF_8)).isEqualTo("hello file");
+        assertThat(new String(readBodyBytes(read), StandardCharsets.UTF_8)).isEqualTo("hello file");
         assertThat(read.upToDate()).isTrue();
+
+
         assertThat(read.etag()).isNotEmpty();
     }
 
@@ -85,8 +87,10 @@ class NioFileStreamStoreTest {
         // Read
         ReadOutcome read = store.read(url, Offset.beginning(), 1024)
                 .get(5, TimeUnit.SECONDS);
+        assertThat(new String(readBodyBytes(read), StandardCharsets.UTF_8)).isEqualTo("appended content");
 
-        assertThat(new String(read.body(), StandardCharsets.UTF_8)).isEqualTo("appended content");
+
+
     }
 
     @Test
@@ -108,8 +112,9 @@ class NioFileStreamStoreTest {
         ReadOutcome read = store.read(url, Offset.beginning(), 1024)
                 .get(5, TimeUnit.SECONDS);
 
-        assertThat(new String(read.body(), StandardCharsets.UTF_8))
+        assertThat(new String(readBodyBytes(read), StandardCharsets.UTF_8))
                 .isEqualTo("chunk0chunk1chunk2chunk3chunk4");
+
     }
 
     @Test
@@ -259,7 +264,8 @@ class NioFileStreamStoreTest {
         ReadOutcome read = store.read(url, offset, 1024).get(5, TimeUnit.SECONDS);
 
         assertThat(read.status()).isEqualTo(ReadOutcome.Status.OK);
-        assertThat(new String(read.body(), StandardCharsets.UTF_8)).isEqualTo("56789");
+        assertThat(new String(readBodyBytes(read), StandardCharsets.UTF_8)).isEqualTo("56789");
+
     }
 
     @Test
@@ -314,10 +320,33 @@ class NioFileStreamStoreTest {
 
         // Read and verify total size
         ReadOutcome read = store.read(url, Offset.beginning(), 10000).get(5, TimeUnit.SECONDS);
-        assertThat(read.body().length).isEqualTo(numAppends * 5); // "data0" = 5 bytes each
+        assertThat(readBodyBytes(read).length).isEqualTo(numAppends * 5); // "data0" = 5 bytes each
+    }
+
+    private static byte[] readBodyBytes(ReadOutcome read) {
+        if (read.body() != null) {
+            return read.body();
+        }
+        if (read.fileRegion().isEmpty()) {
+            return new byte[0];
+        }
+        io.durablestreams.server.spi.ReadOutcome.FileRegion region = read.fileRegion().get();
+        try (var channel = java.nio.channels.FileChannel.open(region.path(), java.nio.file.StandardOpenOption.READ)) {
+            java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocate(region.length());
+            channel.position(region.position());
+            while (buffer.hasRemaining()) {
+                if (channel.read(buffer) < 0) {
+                    break;
+                }
+            }
+            return buffer.array();
+        } catch (java.io.IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static final class MutableClock extends Clock {
+
         private Instant instant;
         private final ZoneId zone;
 

@@ -62,6 +62,9 @@ public final class DurableStreamsQuarkusAdapter {
         if (body instanceof ResponseBody.Bytes bytes) {
             return builder.entity(bytes.bytes()).build();
         }
+        if (body instanceof ResponseBody.FileRegion region) {
+            return builder.entity(openRegionStream(region.region())).build();
+        }
         return builder.build();
     }
 
@@ -97,5 +100,41 @@ public final class DurableStreamsQuarkusAdapter {
                 subscriber.onComplete();
             }
         });
+    }
+
+    private static java.io.InputStream openRegionStream(io.durablestreams.server.spi.ReadOutcome.FileRegion region) {
+        try {
+            java.nio.channels.FileChannel channel = java.nio.channels.FileChannel.open(region.path(), java.nio.file.StandardOpenOption.READ);
+            channel.position(region.position());
+            java.io.InputStream in = java.nio.channels.Channels.newInputStream(channel);
+            return new java.io.FilterInputStream(in) {
+                private long remaining = region.length();
+
+                @Override
+                public int read() throws java.io.IOException {
+                    if (remaining <= 0) return -1;
+                    int value = super.read();
+                    if (value >= 0) remaining--;
+                    return value;
+                }
+
+                @Override
+                public int read(byte[] b, int off, int len) throws java.io.IOException {
+                    if (remaining <= 0) return -1;
+                    int toRead = (int) Math.min(len, remaining);
+                    int read = super.read(b, off, toRead);
+                    if (read > 0) remaining -= read;
+                    return read;
+                }
+
+                @Override
+                public void close() throws java.io.IOException {
+                    super.close();
+                    channel.close();
+                }
+            };
+        } catch (java.io.IOException e) {
+            return java.io.InputStream.nullInputStream();
+        }
     }
 }

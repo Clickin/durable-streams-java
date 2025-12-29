@@ -34,8 +34,9 @@ import java.util.concurrent.Executor;
  * }</pre>
  *
  * <p>Note: While this adapter provides an async interface, the underlying operations still
- * block a thread from the executor pool. For true non-blocking I/O, use implementations
- * like {@code NioFileStreamStore} that use Java NIO channels directly.
+ * block a thread from the executor pool. Prefer virtual threads when available for high
+ * concurrency with blocking I/O.
+
  *
  * @see AsyncStreamStore
  * @see StreamStore

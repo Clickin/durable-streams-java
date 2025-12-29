@@ -1,11 +1,13 @@
 package io.durablestreams.server.core;
 
 import io.durablestreams.core.Offset;
+import io.durablestreams.server.core.metadata.FileStreamMetadata;
+import io.durablestreams.server.core.metadata.LmdbMetadataStore;
+import io.durablestreams.server.core.metadata.MetadataStore;
 import io.durablestreams.server.spi.*;
 
 import java.io.*;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.time.Clock;
 import java.time.Duration;
@@ -15,38 +17,40 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
+
 /**
  * Blocking file-based {@link StreamStore} using traditional Java I/O.
  *
- * <p>This implementation uses {@link FileInputStream}/{@link FileOutputStream} and
- * {@link RandomAccessFile} for file operations. All operations are synchronous and
- * block the calling thread until I/O completes.
+ * <p>This implementation uses blocking file channels for append and memory-mapped reads.
+ * It is designed to pair with virtual threads for high concurrency.
  *
- * <p>This class is provided primarily for benchmarking against {@link NioFileStreamStore}
- * to demonstrate the performance characteristics of blocking vs non-blocking I/O.
+ * <p>Metadata is stored in LMDB under {@code baseDir/metadata}.
  *
  * <p>Storage layout:
  * <pre>
  * baseDir/
+ *   metadata/        - LMDB metadata database
  *   {stream-id}/
- *     meta.json      - stream metadata (JSON)
  *     data.bin       - stream content (binary)
  * </pre>
  *
- * @see NioFileStreamStore
  * @see StreamStore
+
  */
 public final class BlockingFileStreamStore implements StreamStore {
 
     private static final int DEFAULT_BUFFER_SIZE = 64 * 1024;
-    private static final String META_FILE = "meta.json";
     private static final String DATA_FILE = "data.bin";
 
     private final Path baseDir;
     private final Clock clock;
+    private final MetadataStore metadataStore;
+    private final ServiceLoaderCodecRegistry codecs;
 
     // Per-stream state for coordinating waiters
     private final ConcurrentHashMap<URI, StreamState> streams = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<URI, ReentrantLock> appendLocks = new ConcurrentHashMap<>();
+
 
     public BlockingFileStreamStore(Path baseDir) {
         this(baseDir, Clock.systemUTC());
@@ -55,8 +59,11 @@ public final class BlockingFileStreamStore implements StreamStore {
     public BlockingFileStreamStore(Path baseDir, Clock clock) {
         this.baseDir = Objects.requireNonNull(baseDir, "baseDir");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.metadataStore = new LmdbMetadataStore(baseDir.resolve("metadata"));
+        this.codecs = ServiceLoaderCodecRegistry.defaultRegistry();
         ensureDirectory(baseDir);
     }
+
 
     @Override
     public CreateOutcome create(URI url, StreamConfig config, InputStream initialBody) throws Exception {
@@ -64,27 +71,27 @@ public final class BlockingFileStreamStore implements StreamStore {
         Objects.requireNonNull(config, "config");
 
         Path streamDir = resolveStreamDir(url);
-        Path metaPath = streamDir.resolve(META_FILE);
         Path dataPath = streamDir.resolve(DATA_FILE);
 
         Instant now = clock.instant();
 
-        // Check if stream exists
-        if (Files.exists(metaPath)) {
-            StreamMeta existingMeta = readMeta(metaPath);
+        Optional<FileStreamMetadata> existing = metadataStore.get(url);
+        if (existing.isPresent()) {
+            FileStreamMetadata existingMeta = existing.get();
             if (existingMeta.isExpired(now)) {
                 deleteStreamDir(streamDir);
+                metadataStore.delete(url);
             } else {
                 if (!sameConfig(existingMeta.config(), config)) {
                     return new CreateOutcome(
                             CreateOutcome.Status.EXISTS_CONFLICT,
-                            existingMeta.toMetadata(),
+                            toMetadata(existingMeta, now),
                             existingMeta.nextOffset()
                     );
                 }
                 return new CreateOutcome(
                         CreateOutcome.Status.EXISTS_MATCH,
-                        existingMeta.toMetadata(),
+                        toMetadata(existingMeta, now),
                         existingMeta.nextOffset()
                 );
             }
@@ -99,24 +106,31 @@ public final class BlockingFileStreamStore implements StreamStore {
         // Write initial data if provided
         long dataSize = 0;
         if (initialBody != null) {
-            dataSize = writeData(dataPath, initialBody);
+            if (isJsonContentType(config.contentType())) {
+                byte[] bytes = readAllBytes(initialBody);
+                validateJsonInitial(bytes);
+                dataSize = writeData(dataPath, bytes);
+            } else {
+                dataSize = writeData(dataPath, initialBody);
+            }
         } else {
             Files.createFile(dataPath);
         }
 
         Offset nextOffset = new Offset(LexiLong.encode(dataSize));
 
-        StreamMeta meta = new StreamMeta(streamId, config, nextOffset, expiresAt);
-        writeMeta(metaPath, meta);
+        FileStreamMetadata meta = new FileStreamMetadata(streamId, config, nextOffset, expiresAt);
+        metadataStore.put(url, meta);
 
         // Register in memory for await coordination
         streams.put(url, new StreamState(nextOffset));
 
         return new CreateOutcome(
                 CreateOutcome.Status.CREATED,
-                meta.toMetadata(),
+                toMetadata(meta, now),
                 nextOffset
         );
+
     }
 
     @Override
@@ -129,105 +143,129 @@ public final class BlockingFileStreamStore implements StreamStore {
         }
 
         Path streamDir = resolveStreamDir(url);
-        Path metaPath = streamDir.resolve(META_FILE);
         Path dataPath = streamDir.resolve(DATA_FILE);
 
-        if (!Files.exists(metaPath)) {
-            return new AppendOutcome(AppendOutcome.Status.NOT_FOUND, null, "stream not found");
-        }
-
-        StreamMeta meta = readMeta(metaPath);
-        Instant now = clock.instant();
-
-        if (meta.isExpired(now)) {
-            deleteStreamDir(streamDir);
-            streams.remove(url);
-            return new AppendOutcome(AppendOutcome.Status.NOT_FOUND, null, "stream expired");
-        }
-
-        if (!normalizeContentType(meta.config().contentType()).equals(normalizeContentType(contentType))) {
-            return new AppendOutcome(AppendOutcome.Status.CONFLICT, null, "content-type mismatch");
-        }
-
-        // Append data using RandomAccessFile
-        long newSize;
-        try (RandomAccessFile raf = new RandomAccessFile(dataPath.toFile(), "rw")) {
-            raf.seek(raf.length());
-            byte[] buffer = new byte[8192];
-            int read;
-            while ((read = body.read(buffer)) != -1) {
-                raf.write(buffer, 0, read);
+        ReentrantLock appendLock = appendLocks.computeIfAbsent(url, u -> new ReentrantLock());
+        appendLock.lock();
+        try {
+            Optional<FileStreamMetadata> metaOpt = metadataStore.get(url);
+            if (metaOpt.isEmpty()) {
+                return new AppendOutcome(AppendOutcome.Status.NOT_FOUND, null, "stream not found");
             }
-            newSize = raf.length();
+
+            FileStreamMetadata meta = metaOpt.get();
+            Instant now = clock.instant();
+
+            if (meta.isExpired(now)) {
+                deleteStreamDir(streamDir);
+                metadataStore.delete(url);
+                streams.remove(url);
+                appendLocks.remove(url);
+                return new AppendOutcome(AppendOutcome.Status.NOT_FOUND, null, "stream expired");
+            }
+
+            if (!normalizeContentType(meta.config().contentType()).equals(normalizeContentType(contentType))) {
+                return new AppendOutcome(AppendOutcome.Status.CONFLICT, null, "content-type mismatch");
+            }
+
+            if (!Files.exists(dataPath)) {
+                return new AppendOutcome(AppendOutcome.Status.NOT_FOUND, null, "stream data missing");
+            }
+
+            long newSize;
+            if (isJsonContentType(contentType)) {
+                byte[] bytes = readAllBytes(body);
+                if (bytes.length == 0) {
+                    return new AppendOutcome(AppendOutcome.Status.BAD_REQUEST, null, "empty body");
+                }
+                try {
+                    validateJsonAppend(bytes);
+                } catch (IllegalArgumentException e) {
+                    return new AppendOutcome(AppendOutcome.Status.BAD_REQUEST, null, e.getMessage());
+                }
+                newSize = appendBytes(dataPath, bytes);
+            } else {
+                newSize = appendStream(dataPath, body);
+            }
+
+            Offset nextOffset = new Offset(LexiLong.encode(newSize));
+
+            FileStreamMetadata newMeta = meta.withNextOffset(nextOffset);
+            metadataStore.put(url, newMeta);
+
+            StreamState state = streams.get(url);
+            if (state != null) {
+                state.updateAndNotify(nextOffset);
+            }
+
+            return new AppendOutcome(AppendOutcome.Status.APPENDED, nextOffset, null);
+        } finally {
+            appendLock.unlock();
         }
 
-        Offset nextOffset = new Offset(LexiLong.encode(newSize));
-
-        // Update metadata
-        StreamMeta newMeta = meta.withNextOffset(nextOffset);
-        writeMeta(metaPath, newMeta);
-
-        // Notify waiters
-        StreamState state = streams.get(url);
-        if (state != null) {
-            state.updateAndNotify(nextOffset);
-        }
-
-        return new AppendOutcome(AppendOutcome.Status.APPENDED, nextOffset, null);
     }
 
     @Override
     public boolean delete(URI url) throws Exception {
         Path streamDir = resolveStreamDir(url);
+        boolean removedMeta = metadataStore.delete(url);
         if (!Files.exists(streamDir)) {
-            return false;
+            return removedMeta;
         }
         deleteStreamDir(streamDir);
+        appendLocks.remove(url);
         StreamState state = streams.remove(url);
         if (state != null) {
             state.notifyAll_();
         }
         return true;
+
     }
 
     @Override
     public Optional<StreamMetadata> head(URI url) throws Exception {
         Path streamDir = resolveStreamDir(url);
-        Path metaPath = streamDir.resolve(META_FILE);
-
-        if (!Files.exists(metaPath)) {
+        Optional<FileStreamMetadata> metaOpt = metadataStore.get(url);
+        if (metaOpt.isEmpty()) {
             return Optional.empty();
         }
 
-        StreamMeta meta = readMeta(metaPath);
+        FileStreamMetadata meta = metaOpt.get();
         Instant now = clock.instant();
 
         if (meta.isExpired(now)) {
             deleteStreamDir(streamDir);
+            metadataStore.delete(url);
             streams.remove(url);
             return Optional.empty();
         }
 
-        return Optional.of(meta.toMetadata());
+        return Optional.of(toMetadata(meta, now));
+
     }
 
     @Override
     public ReadOutcome read(URI url, Offset startOffset, int maxBytesOrMessages) throws Exception {
         Path streamDir = resolveStreamDir(url);
-        Path metaPath = streamDir.resolve(META_FILE);
         Path dataPath = streamDir.resolve(DATA_FILE);
 
-        if (!Files.exists(metaPath)) {
+        Optional<FileStreamMetadata> metaOpt = metadataStore.get(url);
+        if (metaOpt.isEmpty()) {
             return new ReadOutcome(ReadOutcome.Status.NOT_FOUND, null, null, null, false, null, null);
         }
 
-        StreamMeta meta = readMeta(metaPath);
+        FileStreamMetadata meta = metaOpt.get();
         Instant now = clock.instant();
 
         if (meta.isExpired(now)) {
             deleteStreamDir(streamDir);
+            metadataStore.delete(url);
             streams.remove(url);
             return new ReadOutcome(ReadOutcome.Status.GONE, null, null, null, false, null, null);
+        }
+
+        if (!Files.exists(dataPath)) {
+            return new ReadOutcome(ReadOutcome.Status.NOT_FOUND, null, null, null, false, null, null);
         }
 
         long pos = decodeOffset(startOffset);
@@ -254,42 +292,34 @@ public final class BlockingFileStreamStore implements StreamStore {
             );
         }
 
-        // Read using RandomAccessFile
-        byte[] data = new byte[toRead];
-        try (RandomAccessFile raf = new RandomAccessFile(dataPath.toFile(), "r")) {
-            raf.seek(readPos);
-            int bytesRead = raf.read(data);
-            if (bytesRead < toRead) {
-                data = Arrays.copyOf(data, bytesRead);
-            }
-        }
-
-        long nextPos = readPos + data.length;
+        ReadOutcome.FileRegion region = new ReadOutcome.FileRegion(dataPath, readPos, toRead);
+        long nextPos = readPos + toRead;
         boolean upToDate = nextPos >= fileSize;
         Offset nextOffset = new Offset(LexiLong.encode(nextPos));
         String etag = meta.streamId() + ":" + LexiLong.encode(readPos) + ":" + nextOffset.value();
 
         return new ReadOutcome(
                 ReadOutcome.Status.OK,
-                data,
+                null,
                 meta.config().contentType(),
                 nextOffset,
                 upToDate,
                 etag,
-                null
+                null,
+                region
         );
+
     }
 
     @Override
     public boolean await(URI url, Offset startOffset, Duration timeout) throws Exception {
         StreamState state = streams.get(url);
         if (state == null) {
-            Path streamDir = resolveStreamDir(url);
-            Path metaPath = streamDir.resolve(META_FILE);
-            if (!Files.exists(metaPath)) {
+            Optional<FileStreamMetadata> metaOpt = metadataStore.get(url);
+            if (metaOpt.isEmpty()) {
                 return false;
             }
-            StreamMeta meta = readMeta(metaPath);
+            FileStreamMetadata meta = metaOpt.get();
             if (meta.isExpired(clock.instant())) {
                 return false;
             }
@@ -300,7 +330,16 @@ public final class BlockingFileStreamStore implements StreamStore {
         return state.awaitData(pos, timeout);
     }
 
+    public void close() {
+        try {
+            metadataStore.close();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     // --- Internal state for await coordination ---
+
 
     private static final class StreamState {
         private final ReentrantLock lock = new ReentrantLock();
@@ -350,28 +389,60 @@ public final class BlockingFileStreamStore implements StreamStore {
 
     // --- Metadata handling ---
 
-    private record StreamMeta(
-            String streamId,
-            StreamConfig config,
-            Offset nextOffset,
-            Instant expiresAt
-    ) {
-        boolean isExpired(Instant now) {
-            return expiresAt != null && !expiresAt.isAfter(now);
+    private StreamMetadata toMetadata(FileStreamMetadata meta, Instant now) {
+        Long ttlRemaining = null;
+        if (meta.expiresAt() != null) {
+            long seconds = Duration.between(now, meta.expiresAt()).getSeconds();
+            ttlRemaining = Math.max(seconds, 0L);
         }
+        return new StreamMetadata(meta.streamId(), meta.config(), meta.nextOffset(), ttlRemaining, meta.expiresAt());
+    }
 
-        StreamMeta withNextOffset(Offset newOffset) {
-            return new StreamMeta(streamId, config, newOffset, expiresAt);
+    private void validateJsonInitial(byte[] bytes) {
+        if (bytes.length == 0) {
+            return;
         }
+        StreamCodec codec = requireJsonCodec();
+        StreamCodec.State state = codec.createEmpty();
+        try {
+            codec.applyInitial(state, new ByteArrayInputStream(bytes));
+        } catch (Exception e) {
+            throw new IllegalArgumentException("invalid json", e);
+        }
+    }
 
-        StreamMetadata toMetadata() {
-            Long ttlRemaining = null;
-            if (expiresAt != null) {
-                long seconds = Duration.between(Instant.now(), expiresAt).getSeconds();
-                ttlRemaining = Math.max(seconds, 0L);
-            }
-            return new StreamMetadata(streamId, config, nextOffset, ttlRemaining, expiresAt);
+    private void validateJsonAppend(byte[] bytes) {
+        StreamCodec codec = requireJsonCodec();
+        StreamCodec.State state = codec.createEmpty();
+        try {
+            codec.append(state, new ByteArrayInputStream(bytes));
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalArgumentException("invalid json", e);
         }
+    }
+
+    private StreamCodec requireJsonCodec() {
+        return codecs.find("application/json").orElseThrow(() ->
+                new IllegalArgumentException("application/json requires an installed JSON codec module"));
+    }
+
+    private static boolean isJsonContentType(String contentType) {
+        if (contentType == null) return false;
+        int semi = contentType.indexOf(';');
+        String base = semi >= 0 ? contentType.substring(0, semi) : contentType;
+        return "application/json".equalsIgnoreCase(base.trim());
+    }
+
+    private static byte[] readAllBytes(InputStream body) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        byte[] buffer = new byte[8192];
+        int read;
+        while ((read = body.read(buffer)) != -1) {
+            out.write(buffer, 0, read);
+        }
+        return out.toByteArray();
     }
 
     // --- File utilities ---
@@ -417,115 +488,33 @@ public final class BlockingFileStreamStore implements StreamStore {
         }
     }
 
-    private StreamMeta readMeta(Path metaPath) throws IOException {
-        for (int i = 0; i < 3; i++) {
-            String json = Files.readString(metaPath, StandardCharsets.UTF_8);
-            try {
-                return parseMetaJson(json);
-            } catch (RuntimeException e) {
-                if (i == 2) {
-                    throw e;
-                }
-                try {
-                    Thread.sleep(2L);
-                } catch (InterruptedException interrupted) {
-                    Thread.currentThread().interrupt();
-                    throw new IOException("Read interrupted", interrupted);
-                }
+    private long writeData(Path dataPath, byte[] bytes) throws IOException {
+        try (OutputStream out = new BufferedOutputStream(new FileOutputStream(dataPath.toFile()))) {
+            out.write(bytes);
+            return bytes.length;
+        }
+    }
+
+    private long appendStream(Path dataPath, InputStream body) throws IOException {
+        try (RandomAccessFile raf = new RandomAccessFile(dataPath.toFile(), "rw")) {
+            raf.seek(raf.length());
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = body.read(buffer)) != -1) {
+                raf.write(buffer, 0, read);
             }
-        }
-        throw new IOException("Failed to read metadata");
-    }
-
-    private void writeMeta(Path metaPath, StreamMeta meta) throws IOException {
-        String json = toMetaJson(meta);
-        Path tmpPath = Files.createTempFile(metaPath.getParent(), metaPath.getFileName().toString(), ".tmp");
-        Files.writeString(tmpPath, json, StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-        try {
-            Files.move(tmpPath, metaPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-        } catch (AtomicMoveNotSupportedException e) {
-            try {
-                Files.move(tmpPath, metaPath, StandardCopyOption.REPLACE_EXISTING);
-            } catch (IOException moveFailed) {
-                Files.writeString(metaPath, json, StandardCharsets.UTF_8,
-                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-                Files.deleteIfExists(tmpPath);
-            }
-        } catch (IOException moveFailed) {
-            Files.writeString(metaPath, json, StandardCharsets.UTF_8,
-                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-            Files.deleteIfExists(tmpPath);
+            return raf.length();
         }
     }
 
-    private String toMetaJson(StreamMeta meta) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{");
-        sb.append("\"streamId\":\"").append(escapeJson(meta.streamId())).append("\",");
-        sb.append("\"contentType\":\"").append(escapeJson(meta.config().contentType())).append("\",");
-        sb.append("\"nextOffset\":\"").append(escapeJson(meta.nextOffset().value())).append("\"");
-        meta.config().ttlSeconds().ifPresent(ttl -> sb.append(",\"ttlSeconds\":").append(ttl));
-        if (meta.expiresAt() != null) {
-            sb.append(",\"expiresAt\":\"").append(meta.expiresAt().toString()).append("\"");
+    private long appendBytes(Path dataPath, byte[] bytes) throws IOException {
+        try (RandomAccessFile raf = new RandomAccessFile(dataPath.toFile(), "rw")) {
+            raf.seek(raf.length());
+            raf.write(bytes);
+            return raf.length();
         }
-        sb.append("}");
-        return sb.toString();
     }
 
-    private StreamMeta parseMetaJson(String json) {
-        String streamId = extractJsonString(json, "streamId");
-        String contentType = extractJsonString(json, "contentType");
-        String nextOffsetStr = extractJsonString(json, "nextOffset");
-        Long ttlSeconds = extractJsonLong(json, "ttlSeconds");
-        String expiresAtStr = extractJsonString(json, "expiresAt");
-
-        StreamConfig config = new StreamConfig(
-                contentType,
-                ttlSeconds,
-                expiresAtStr != null ? Instant.parse(expiresAtStr) : null
-        );
-
-        return new StreamMeta(
-                streamId,
-                config,
-                new Offset(nextOffsetStr),
-                expiresAtStr != null ? Instant.parse(expiresAtStr) : null
-        );
-    }
-
-    private static String extractJsonString(String json, String key) {
-        String pattern = "\"" + key + "\":\"";
-        int start = json.indexOf(pattern);
-        if (start < 0) return null;
-        start += pattern.length();
-        int end = json.indexOf("\"", start);
-        if (end < 0) return null;
-        return unescapeJson(json.substring(start, end));
-    }
-
-    private static Long extractJsonLong(String json, String key) {
-        String pattern = "\"" + key + "\":";
-        int start = json.indexOf(pattern);
-        if (start < 0) return null;
-        start += pattern.length();
-        int end = start;
-        while (end < json.length() && (Character.isDigit(json.charAt(end)) || json.charAt(end) == '-')) {
-            end++;
-        }
-        if (end == start) return null;
-        return Long.parseLong(json.substring(start, end));
-    }
-
-    private static String escapeJson(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\").replace("\"", "\\\"");
-    }
-
-    private static String unescapeJson(String s) {
-        if (s == null) return "";
-        return s.replace("\\\"", "\"").replace("\\\\", "\\");
-    }
 
     private static boolean sameConfig(StreamConfig a, StreamConfig b) {
         return normalizeContentType(a.contentType()).equals(normalizeContentType(b.contentType()))

@@ -48,6 +48,10 @@ public final class DurableStreamsWebMvcServlet extends HttpServlet {
                 resp.getOutputStream().write(bytes.bytes());
                 return;
             }
+            if (body instanceof ResponseBody.FileRegion region) {
+                writeFileRegion(resp, region.region());
+                return;
+            }
             if (body instanceof ResponseBody.Sse sse) {
                 resp.setContentType("text/event-stream");
                 resp.setCharacterEncoding(StandardCharsets.UTF_8.name());
@@ -119,6 +123,12 @@ public final class DurableStreamsWebMvcServlet extends HttpServlet {
                 out.write(buf, 0, r);
             }
             return out.toByteArray();
+        }
+    }
+
+    private static void writeFileRegion(HttpServletResponse resp, io.durablestreams.server.spi.ReadOutcome.FileRegion region) throws IOException {
+        try (var channel = java.nio.channels.FileChannel.open(region.path(), java.nio.file.StandardOpenOption.READ)) {
+            channel.transferTo(region.position(), region.length(), java.nio.channels.Channels.newChannel(resp.getOutputStream()));
         }
     }
 }

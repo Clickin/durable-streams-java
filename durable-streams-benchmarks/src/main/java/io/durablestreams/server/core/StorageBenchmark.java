@@ -15,7 +15,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 /**
- * Performance benchmark comparing synchronous (blocking) vs asynchronous (NIO) file storage.
+ * Performance benchmark comparing blocking vs virtual-thread async file storage.
+
  *
  * <p>Run with: {@code java StorageBenchmark}
  *
@@ -43,7 +44,8 @@ public class StorageBenchmark {
 
     public static void main(String[] args) throws Exception {
         System.out.println("=".repeat(80));
-        System.out.println("Storage Performance Benchmark: Blocking vs NIO Async");
+        System.out.println("Storage Performance Benchmark: Blocking vs Virtual Thread Async");
+
         System.out.println("=".repeat(80));
         System.out.println();
         System.out.printf("Configuration:%n");
@@ -161,8 +163,8 @@ public class StorageBenchmark {
             }
         });
 
-        // Benchmark NIO async
-        long nioTime = benchmarkAsyncSerial("NIO Async FileStore", () ->
+        // Benchmark VT async
+        long nioTime = benchmarkAsyncSerial("VT Async FileStore", () ->
                 nioStore.append(nioUrl, "application/octet-stream", null, ByteBuffer.wrap(TEST_DATA.clone()))
         );
 
@@ -212,7 +214,7 @@ public class StorageBenchmark {
             }
         });
 
-        long nioTime = benchmarkAsyncSerial("NIO Async FileStore", () ->
+        long nioTime = benchmarkAsyncSerial("VT Async FileStore", () ->
                 nioStore.read(nioUrl, Offset.beginning(), DATA_SIZE)
         );
 
@@ -245,7 +247,7 @@ public class StorageBenchmark {
             }
         });
 
-        long nioTime = benchmarkConcurrentAsync("NIO Async FileStore", () -> {
+        long nioTime = benchmarkConcurrentAsync("VT Async FileStore", () -> {
             try {
                 for (int i = 0; i < BENCHMARK_ITERATIONS / CONCURRENT_THREADS; i++) {
                     URI url = URI.create("http://localhost/bench/nio-conc-" + URL_COUNTER.incrementAndGet());
@@ -305,8 +307,8 @@ public class StorageBenchmark {
             }
         });
 
-        // Benchmark NIO async
-        long nioTime = benchmarkConcurrentAsync("NIO Async FileStore", () -> {
+        // Benchmark VT async
+        long nioTime = benchmarkConcurrentAsync("VT Async FileStore", () -> {
             try {
                 List<CompletableFuture<?>> futures = new ArrayList<>();
                 for (int i = 0; i < BENCHMARK_ITERATIONS / CONCURRENT_THREADS; i++) {
@@ -366,8 +368,8 @@ public class StorageBenchmark {
             }
         });
 
-        // Benchmark NIO async - per-thread streams
-        long nioTime = benchmarkConcurrentAsync("NIO Async FileStore", () -> {
+        // Benchmark VT async - per-thread streams
+        long nioTime = benchmarkConcurrentAsync("VT Async FileStore", () -> {
             try {
                 URI url = URI.create("http://localhost/bench/nio-mixed-" + URL_COUNTER.incrementAndGet());
                 nioStore.create(url, new StreamConfig("application/octet-stream", null, null),
@@ -443,7 +445,7 @@ public class StorageBenchmark {
             blockingLatencies.add(latency.get());
         }
 
-        // NIO async await latency
+        // VT async await latency
         List<Long> nioLatencies = new ArrayList<>();
         for (int i = 0; i < iterations; i++) {
             URI url = URI.create("http://localhost/bench/await-nio-" + i);
@@ -482,7 +484,7 @@ public class StorageBenchmark {
                 percentile(blockingLatencies, 50) / 1000.0,
                 percentile(blockingLatencies, 99) / 1000.0);
         System.out.printf("    %-30s avg: %8.2f  p50: %8.2f  p99: %8.2f%n",
-                "NIO Async FileStore:",
+                "VT Async FileStore:",
                 avg(nioLatencies) / 1000.0,
                 percentile(nioLatencies, 50) / 1000.0,
                 percentile(nioLatencies, 99) / 1000.0);
@@ -580,7 +582,7 @@ public class StorageBenchmark {
         System.out.println("  Comparison:");
         double nioSpeedup = (double) blockingTime / nioTime;
         double adapterSpeedup = (double) blockingTime / adapterTime;
-        System.out.printf("    NIO vs Blocking:     %.2fx %s%n",
+        System.out.printf("    VT Async vs Blocking:     %.2fx %s%n",
                 Math.abs(nioSpeedup),
                 nioSpeedup > 1 ? "faster" : "slower");
         System.out.printf("    Adapter vs Blocking: %.2fx %s%n",
