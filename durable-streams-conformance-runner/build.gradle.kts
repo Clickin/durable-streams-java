@@ -46,6 +46,10 @@ tasks.register<JavaExec>("runClientAdapter") {
     dependsOn(tasks.named("classes"))
     mainClass.set("io.durablestreams.conformance.ClientConformanceAdapter")
     classpath = sourceSets.main.get().runtimeClasspath
+    jvmArgs(
+        "--add-opens", "java.base/java.nio=ALL-UNNAMED",
+        "--add-opens", "java.base/sun.nio.ch=ALL-UNNAMED"
+    )
 }
 
 tasks.register<Jar>("clientAdapterJar") {
