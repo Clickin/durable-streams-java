@@ -4,6 +4,7 @@ import io.durablestreams.server.core.CachePolicy;
 import io.durablestreams.server.core.DurableStreamsHandler;
 import io.durablestreams.server.core.HttpMethod;
 import io.durablestreams.server.core.InMemoryStreamStore;
+import io.durablestreams.server.core.BlockingFileStreamStore;
 import io.durablestreams.server.core.ResponseBody;
 import io.durablestreams.server.core.ServerRequest;
 import io.durablestreams.server.core.ServerResponse;
@@ -16,6 +17,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.LinkedHashMap;
@@ -29,7 +32,8 @@ public final class ConformanceServer {
     private static final int PORT = 4437;
 
     public static void main(String[] args) {
-        DurableStreamsHandler handler = DurableStreamsHandler.builder(new InMemoryStreamStore())
+
+        DurableStreamsHandler handler = DurableStreamsHandler.builder(new BlockingFileStreamStore(Path.of("", "data")))
                 .cursorPolicy(new CursorPolicy(Clock.systemUTC()))
                 .cachePolicy(CachePolicy.defaultPrivate())
                 .longPollTimeout(Duration.ofSeconds(25))
@@ -53,8 +57,7 @@ public final class ConformanceServer {
                 HttpMethod.valueOf(ctx.method().name()),
                 URI.create(ctx.fullUrl()),
                 toHeaders(ctx),
-                bodyOrNull(ctx)
-        );
+                bodyOrNull(ctx));
 
         ServerResponse response = handler.handle(request);
         ctx.status(response.status());
@@ -94,7 +97,8 @@ public final class ConformanceServer {
 
     private static java.io.InputStream bodyOrNull(Context ctx) {
         long len = ctx.req().getContentLengthLong();
-        if (len <= 0) return null;
+        if (len <= 0)
+            return null;
         return ctx.bodyInputStream();
     }
 
@@ -139,9 +143,11 @@ public final class ConformanceServer {
         }
     }
 
-    private static void writeFileRegion(Context ctx, io.durablestreams.server.spi.ReadOutcome.FileRegion region) throws IOException {
+    private static void writeFileRegion(Context ctx, io.durablestreams.server.spi.ReadOutcome.FileRegion region)
+            throws IOException {
         try (var channel = java.nio.channels.FileChannel.open(region.path(), java.nio.file.StandardOpenOption.READ)) {
-            channel.transferTo(region.position(), region.length(), java.nio.channels.Channels.newChannel(ctx.res().getOutputStream()));
+            channel.transferTo(region.position(), region.length(),
+                    java.nio.channels.Channels.newChannel(ctx.res().getOutputStream()));
         }
     }
 }
