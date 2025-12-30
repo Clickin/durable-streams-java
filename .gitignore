@@ -14,3 +14,22 @@ bin
 *.class
 *.bin
 nul
+
+# Temp files
+.tmp/
+
+# AI/Documentation files (not for public repo)
+AGENTS.md
+ARCHITECTURE.md
+IMPLEMENTATION.md
+MODULES.md
+PLAN.md
+PROTOCOL-SUMMARY.md
+TESTING.md
+
+# Root-level npm files (conformance-node has its own)
+/package.json
+/package-lock.json
+
+# Conformance data
+durable-streams-conformance-runner/data/
