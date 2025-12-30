@@ -57,9 +57,17 @@ public final class BlockingFileStreamStore implements StreamStore {
     }
 
     public BlockingFileStreamStore(Path baseDir, Clock clock) {
+        this(baseDir, clock, new LmdbMetadataStore(baseDir.resolve("metadata")));
+    }
+
+    public BlockingFileStreamStore(Path baseDir, MetadataStore metadataStore) {
+        this(baseDir, Clock.systemUTC(), metadataStore);
+    }
+
+    public BlockingFileStreamStore(Path baseDir, Clock clock, MetadataStore metadataStore) {
         this.baseDir = Objects.requireNonNull(baseDir, "baseDir");
         this.clock = Objects.requireNonNull(clock, "clock");
-        this.metadataStore = new LmdbMetadataStore(baseDir.resolve("metadata"));
+        this.metadataStore = Objects.requireNonNull(metadataStore, "metadataStore");
         this.codecs = ServiceLoaderCodecRegistry.defaultRegistry();
         ensureDirectory(baseDir);
     }
