@@ -1,6 +1,7 @@
 package io.durablestreams.server.core;
 
 import io.durablestreams.core.Offset;
+import io.durablestreams.server.core.metadata.LmdbMetadataStore;
 import io.durablestreams.server.spi.*;
 
 import java.io.ByteArrayInputStream;
@@ -36,6 +37,7 @@ public class StorageBenchmark {
     private static final int BENCHMARK_ITERATIONS = 1000;
     private static final int CONCURRENT_THREADS = 10;
     private static final int DATA_SIZE = 4096; // 4KB per operation
+    private static final int LMDB_MAX_READERS = 1024;
     private static final byte[] TEST_DATA = new byte[DATA_SIZE];
 
     static {
@@ -65,13 +67,23 @@ public class StorageBenchmark {
             Files.createDirectories(nioDir);
             Files.createDirectories(adapterDir);
 
-            BlockingFileStreamStore blockingStore = new BlockingFileStreamStore(blockingDir);
-            NioFileStreamStore nioStore = new NioFileStreamStore(nioDir);
+            BlockingFileStreamStore blockingStore = new BlockingFileStreamStore(
+                    blockingDir,
+                    new LmdbMetadataStore(blockingDir.resolve("metadata"), LMDB_MAX_READERS));
+            NioFileStreamStore nioStore = new NioFileStreamStore(
+                    new BlockingFileStreamStore(
+                            nioDir,
+                            new LmdbMetadataStore(nioDir.resolve("metadata"), LMDB_MAX_READERS)),
+                    VirtualThreads.newExecutor("durable-streams-io"));
 
             // Adapter wrapping blocking store with virtual thread executor (Java 21+)
             ExecutorService virtualExecutor = Executors.newVirtualThreadPerTaskExecutor();
             AsyncStreamStore adapterStore = new BlockingToAsyncAdapter(
-                    new BlockingFileStreamStore(adapterDir), virtualExecutor);
+                    new BlockingFileStreamStore(
+                            adapterDir,
+                            new LmdbMetadataStore(adapterDir.resolve("metadata"), LMDB_MAX_READERS)),
+                    virtualExecutor);
+
 
             try {
                 runAllBenchmarks(blockingStore, nioStore, adapterStore);
@@ -123,6 +135,12 @@ public class StorageBenchmark {
         System.out.println("6. AWAIT LATENCY BENCHMARK");
         System.out.println("-".repeat(80));
         benchmarkAwaitLatency(blockingStore, nioStore, adapterStore);
+
+        System.out.println();
+        System.out.println("-".repeat(80));
+        System.out.println("7. BLOCKING FILESTORE: VIRTUAL THREADS VS PLATFORM THREAD POOL");
+        System.out.println("-".repeat(80));
+        benchmarkBlockingThreadModels(blockingStore);
 
         System.out.println();
         System.out.println("=".repeat(80));
@@ -495,6 +513,38 @@ public class StorageBenchmark {
                 percentile(adapterLatencies, 99) / 1000.0);
     }
 
+    private static void benchmarkBlockingThreadModels(BlockingFileStreamStore blockingStore) throws Exception {
+        int operationsPerThread = Math.max(1, BENCHMARK_ITERATIONS / CONCURRENT_THREADS);
+        int totalOps = operationsPerThread * CONCURRENT_THREADS;
+        Runnable task = () -> {
+            try {
+                URI url = URI.create("http://localhost/bench/blocking-thread-model-" + URL_COUNTER.incrementAndGet());
+                blockingStore.create(url, new StreamConfig("application/octet-stream", null, null), null);
+                for (int i = 0; i < operationsPerThread; i++) {
+                    blockingStore.append(url, "application/octet-stream", null, new ByteArrayInputStream(TEST_DATA));
+                }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        };
+
+        long platformTime = benchmarkConcurrentWithExecutor(
+                "Blocking FileStore + Platform Thread Pool",
+                totalOps,
+                Executors.newFixedThreadPool(CONCURRENT_THREADS),
+                task
+        );
+
+        long virtualTime = benchmarkConcurrentWithExecutor(
+                "Blocking FileStore + Virtual Threads",
+                totalOps,
+                Executors.newVirtualThreadPerTaskExecutor(),
+                task
+        );
+
+        printSpeedup("Platform Thread Pool", platformTime, "Virtual Threads", virtualTime);
+    }
+
     // --- Benchmark Utilities ---
 
     private static long benchmarkSync(String name, Runnable operation) {
@@ -577,6 +627,30 @@ public class StorageBenchmark {
         }
     }
 
+    private static long benchmarkConcurrentWithExecutor(
+            String name,
+            int totalOps,
+            ExecutorService executor,
+            Runnable task) throws Exception {
+        System.out.printf("  Running %s with %d threads...%n", name, CONCURRENT_THREADS);
+        try {
+            long start = System.nanoTime();
+            List<Future<?>> futures = new ArrayList<>();
+            for (int i = 0; i < CONCURRENT_THREADS; i++) {
+                futures.add(executor.submit(task));
+            }
+            for (Future<?> f : futures) {
+                f.get();
+            }
+            long elapsed = System.nanoTime() - start;
+            double opsPerSec = totalOps / (elapsed / 1_000_000_000.0);
+            System.out.printf("    %s: %.2f ops/sec (%.3f ms total)%n", name, opsPerSec, elapsed / 1_000_000.0);
+            return elapsed;
+        } finally {
+            executor.shutdown();
+        }
+    }
+
     private static void printComparison(long blockingTime, long nioTime, long adapterTime) {
         System.out.println();
         System.out.println("  Comparison:");
@@ -588,6 +662,17 @@ public class StorageBenchmark {
         System.out.printf("    Adapter vs Blocking: %.2fx %s%n",
                 Math.abs(adapterSpeedup),
                 adapterSpeedup > 1 ? "faster" : "slower");
+    }
+
+    private static void printSpeedup(String baselineName, long baselineTime, String contenderName, long contenderTime) {
+        System.out.println();
+        System.out.println("  Comparison:");
+        double speedup = (double) baselineTime / contenderTime;
+        System.out.printf("    %s vs %s: %.2fx %s%n",
+                contenderName,
+                baselineName,
+                Math.abs(speedup),
+                speedup > 1 ? "faster" : "slower");
     }
 
     private static double avg(List<Long> values) {

@@ -18,12 +18,19 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  * <p>Good for unit tests and examples. Not intended for production.
  *
- * <p>Content-Type behavior is delegated to {@link StreamCodec} implementations discovered via
- * {@link ServiceLoaderCodecRegistry}:
+ * <p>Content-Type behavior is delegated to {@link StreamCodec} implementations:
  * <ul>
  *   <li>All non-JSON content types use a built-in byte codec</li>
- *   <li>{@code application/json} requires an installed JSON codec module (e.g. durable-streams-json-jackson)</li>
+ *   <li>{@code application/json} requires an installed JSON codec</li>
  * </ul>
+ *
+ * <p>For GraalVM native-image, use explicit codec registration:
+ * <pre>{@code
+ * StreamCodecRegistry registry = StreamCodecRegistry.builder()
+ *     .register(JacksonJsonStreamCodec.INSTANCE)
+ *     .build();
+ * InMemoryStreamStore store = new InMemoryStreamStore(registry);
+ * }</pre>
  */
 public final class InMemoryStreamStore implements StreamStore {
 
@@ -31,7 +38,7 @@ public final class InMemoryStreamStore implements StreamStore {
     private static final int DEFAULT_MAX_MESSAGES = 1024;
 
     private final Map<URI, StreamState> streams = new ConcurrentHashMap<>();
-    private final ServiceLoaderCodecRegistry codecs;
+    private final StreamCodecRegistry codecs;
     private final OffsetGenerator offsetGenerator;
     private final Clock clock;
 
@@ -39,7 +46,7 @@ public final class InMemoryStreamStore implements StreamStore {
         this(new LexiLongOffsetGenerator(), ServiceLoaderCodecRegistry.defaultRegistry(), Clock.systemUTC());
     }
 
-    public InMemoryStreamStore(ServiceLoaderCodecRegistry codecs) {
+    public InMemoryStreamStore(StreamCodecRegistry codecs) {
         this(new LexiLongOffsetGenerator(), codecs, Clock.systemUTC());
     }
 
@@ -47,11 +54,11 @@ public final class InMemoryStreamStore implements StreamStore {
         this(offsetGenerator, ServiceLoaderCodecRegistry.defaultRegistry(), Clock.systemUTC());
     }
 
-    public InMemoryStreamStore(OffsetGenerator offsetGenerator, ServiceLoaderCodecRegistry codecs) {
+    public InMemoryStreamStore(OffsetGenerator offsetGenerator, StreamCodecRegistry codecs) {
         this(offsetGenerator, codecs, Clock.systemUTC());
     }
 
-    public InMemoryStreamStore(OffsetGenerator offsetGenerator, ServiceLoaderCodecRegistry codecs, Clock clock) {
+    public InMemoryStreamStore(OffsetGenerator offsetGenerator, StreamCodecRegistry codecs, Clock clock) {
         this.offsetGenerator = Objects.requireNonNull(offsetGenerator, "offsetGenerator");
         this.codecs = Objects.requireNonNull(codecs, "codecs");
         this.clock = Objects.requireNonNull(clock, "clock");
@@ -166,14 +173,14 @@ public final class InMemoryStreamStore implements StreamStore {
             this.expiresAt = expiresAt;
         }
 
-        static StreamState createNew(StreamConfig config, ServiceLoaderCodecRegistry codecs, Instant now) {
+        static StreamState createNew(StreamConfig config, StreamCodecRegistry codecs, Instant now) {
             String ct = normalizeContentType(config.contentType());
             StreamCodec codec;
             if ("application/json".equals(ct)) {
                 codec = codecs.find(ct).orElseThrow(() ->
                         new IllegalArgumentException("application/json requires an installed JSON codec module"));
             } else {
-                codec = codecs.fallbackBytes();
+                codec = ByteStreamCodec.INSTANCE;
             }
             StreamCodec.State st = codec.createEmpty();
             Offset next = new Offset(LexiLong.encode(0));

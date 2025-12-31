@@ -15,7 +15,14 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * JSON codec for {@code application/json}.
+ * JSON codec for {@code application/json} using Jackson.
+ *
+ * <p>Use {@link #INSTANCE} for GraalVM native-image friendly registration:
+ * <pre>{@code
+ * StreamCodecRegistry registry = StreamCodecRegistry.builder()
+ *     .register(JacksonJsonStreamCodec.INSTANCE)
+ *     .build();
+ * }</pre>
  *
  * <p>Protocol behavior:
  * <ul>
@@ -31,6 +38,11 @@ import java.util.Objects;
  * </ul>
  */
 public final class JacksonJsonStreamCodec implements StreamCodec {
+
+    /**
+     * Singleton instance for explicit registration (GraalVM native-image friendly).
+     */
+    public static final JacksonJsonStreamCodec INSTANCE = new JacksonJsonStreamCodec();
 
     private static final ObjectMapper MAPPER = new ObjectMapper(new JsonFactory());
 

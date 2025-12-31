@@ -45,7 +45,7 @@ public final class BlockingFileStreamStore implements StreamStore {
     private final Path baseDir;
     private final Clock clock;
     private final MetadataStore metadataStore;
-    private final ServiceLoaderCodecRegistry codecs;
+    private final StreamCodecRegistry codecs;
 
     // Per-stream state for coordinating waiters
     private final ConcurrentHashMap<URI, StreamState> streams = new ConcurrentHashMap<>();
@@ -53,22 +53,30 @@ public final class BlockingFileStreamStore implements StreamStore {
 
 
     public BlockingFileStreamStore(Path baseDir) {
-        this(baseDir, Clock.systemUTC());
+        this(baseDir, Clock.systemUTC(), null, ServiceLoaderCodecRegistry.defaultRegistry());
+    }
+
+    public BlockingFileStreamStore(Path baseDir, StreamCodecRegistry codecs) {
+        this(baseDir, Clock.systemUTC(), null, codecs);
     }
 
     public BlockingFileStreamStore(Path baseDir, Clock clock) {
-        this(baseDir, clock, new LmdbMetadataStore(baseDir.resolve("metadata")));
+        this(baseDir, clock, null, ServiceLoaderCodecRegistry.defaultRegistry());
     }
 
     public BlockingFileStreamStore(Path baseDir, MetadataStore metadataStore) {
-        this(baseDir, Clock.systemUTC(), metadataStore);
+        this(baseDir, Clock.systemUTC(), metadataStore, ServiceLoaderCodecRegistry.defaultRegistry());
     }
 
     public BlockingFileStreamStore(Path baseDir, Clock clock, MetadataStore metadataStore) {
+        this(baseDir, clock, metadataStore, ServiceLoaderCodecRegistry.defaultRegistry());
+    }
+
+    public BlockingFileStreamStore(Path baseDir, Clock clock, MetadataStore metadataStore, StreamCodecRegistry codecs) {
         this.baseDir = Objects.requireNonNull(baseDir, "baseDir");
         this.clock = Objects.requireNonNull(clock, "clock");
-        this.metadataStore = Objects.requireNonNull(metadataStore, "metadataStore");
-        this.codecs = ServiceLoaderCodecRegistry.defaultRegistry();
+        this.metadataStore = metadataStore != null ? metadataStore : new LmdbMetadataStore(baseDir.resolve("metadata"));
+        this.codecs = Objects.requireNonNull(codecs, "codecs");
         ensureDirectory(baseDir);
     }
 

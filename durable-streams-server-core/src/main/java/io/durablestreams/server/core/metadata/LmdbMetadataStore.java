@@ -28,23 +28,37 @@ public final class LmdbMetadataStore implements MetadataStore {
     private final Dbi<ByteBuffer> streams;
 
     public LmdbMetadataStore(Path baseDir) {
-        this(baseDir, DEFAULT_MAP_SIZE);
+        this(baseDir, DEFAULT_MAP_SIZE, 0);
     }
 
     public LmdbMetadataStore(Path baseDir, long mapSize) {
+        this(baseDir, mapSize, 0);
+    }
+
+    public LmdbMetadataStore(Path baseDir, int maxReaders) {
+        this(baseDir, DEFAULT_MAP_SIZE, maxReaders);
+    }
+
+    public LmdbMetadataStore(Path baseDir, long mapSize, int maxReaders) {
         Objects.requireNonNull(baseDir, "baseDir");
         if (mapSize <= 0) {
             throw new IllegalArgumentException("mapSize must be positive");
+        }
+        if (maxReaders < 0) {
+            throw new IllegalArgumentException("maxReaders must be non-negative");
         }
         try {
             Files.createDirectories(baseDir);
         } catch (IOException e) {
             throw new IllegalStateException("Failed to create LMDB directory", e);
         }
-        this.env = Env.create()
+        Env.Builder<ByteBuffer> builder = Env.create()
                 .setMapSize(mapSize)
-                .setMaxDbs(MAX_DBS)
-                .open(baseDir.toFile());
+                .setMaxDbs(MAX_DBS);
+        if (maxReaders > 0) {
+            builder.setMaxReaders(maxReaders);
+        }
+        this.env = builder.open(baseDir.toFile());
         this.streams = env.openDbi("streams", DbiFlags.MDB_CREATE);
     }
 
