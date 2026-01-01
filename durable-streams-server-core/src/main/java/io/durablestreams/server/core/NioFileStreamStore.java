@@ -101,7 +101,7 @@ public final class NioFileStreamStore implements AsyncStreamStore, AutoCloseable
     }
 
     @Override
-    public void close() {
+    public void close() throws Exception {
         blockingStore.close();
         executor.shutdown();
     }

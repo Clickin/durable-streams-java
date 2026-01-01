@@ -127,6 +127,7 @@ public final class LmdbMetadataStore implements MetadataStore {
         Long ttlSeconds = meta.config().ttlSeconds().orElse(null);
         Instant configExpiresAt = meta.config().expiresAt().orElse(null);
         Instant expiresAt = meta.expiresAt();
+        String lastSeq = meta.lastSeq();
 
         int size = 1
                 + sizeOfString(streamId)
@@ -134,13 +135,15 @@ public final class LmdbMetadataStore implements MetadataStore {
                 + sizeOfString(nextOffset)
                 + (ttlSeconds == null ? 0 : Long.BYTES)
                 + (configExpiresAt == null ? 0 : Long.BYTES)
-                + (expiresAt == null ? 0 : Long.BYTES);
+                + (expiresAt == null ? 0 : Long.BYTES)
+                + sizeOfString(lastSeq);
 
         ByteBuffer buffer = ByteBuffer.allocateDirect(size);
         byte flags = 0;
         if (ttlSeconds != null) flags |= 0x01;
         if (configExpiresAt != null) flags |= 0x02;
         if (expiresAt != null) flags |= 0x04;
+        if (lastSeq != null) flags |= 0x08;
         buffer.put(flags);
 
         writeString(buffer, streamId);
@@ -150,6 +153,7 @@ public final class LmdbMetadataStore implements MetadataStore {
         if (ttlSeconds != null) buffer.putLong(ttlSeconds);
         if (configExpiresAt != null) buffer.putLong(configExpiresAt.toEpochMilli());
         if (expiresAt != null) buffer.putLong(expiresAt.toEpochMilli());
+        if (lastSeq != null) writeString(buffer, lastSeq);
 
         buffer.flip();
         return buffer;
@@ -176,8 +180,13 @@ public final class LmdbMetadataStore implements MetadataStore {
             expiresAt = Instant.ofEpochMilli(buffer.getLong());
         }
 
+        String lastSeq = null;
+        if ((flags & 0x08) != 0) {
+            lastSeq = readString(buffer);
+        }
+
         StreamConfig config = new StreamConfig(contentType, ttlSeconds, configExpiresAt);
-        return new FileStreamMetadata(streamId, config, new Offset(nextOffset), expiresAt);
+        return new FileStreamMetadata(streamId, config, new Offset(nextOffset), expiresAt, lastSeq);
     }
 
     private static void writeString(ByteBuffer buffer, String value) {

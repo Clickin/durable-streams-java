@@ -183,7 +183,7 @@ public final class DurableStreamsHandler {
                 case HEAD -> handleHead(req);
                 case GET -> handleGet(req);
             };
-        } catch (BadRequest br) {
+        } catch (BadRequest | IllegalArgumentException br) {
             return new ServerResponse(400, new ResponseBody.Empty())
                     .header("Content-Type", "text/plain; charset=utf-8")
                     .header("Cache-Control", "no-store")
@@ -240,10 +240,10 @@ public final class DurableStreamsHandler {
     private ServerResponse handleAppend(ServerRequest req) throws Exception {
         URI url = stripQuery(req.uri());
         String contentType = firstHeader(req, Protocol.H_CONTENT_TYPE).orElse(null);
+        if (contentType == null) throw new BadRequest("missing Content-Type");
         String streamSeq = firstHeader(req, Protocol.H_STREAM_SEQ).orElse(null);
 
-        // Body must not be empty (protocol). We cannot reliably know Content-Length here, so enforce via read.
-        // Wrap body with size limiter to enforce 413 Payload Too Large
+        if (req.body() == null) throw new BadRequest("empty body");
         InputStream body = BodySizeLimiter.limit(req.body(), maxBodySize);
         AppendOutcome out = store.append(url, contentType, streamSeq, body);
 

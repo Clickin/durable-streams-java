@@ -6,7 +6,6 @@ import io.durablestreams.core.Protocol;
 import io.durablestreams.core.StreamEvent;
 import io.durablestreams.core.Urls;
 
-import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -97,11 +96,11 @@ public final class JdkDurableStreamsClient implements DurableStreamsClient {
     }
 
     private static Map<String, Iterable<String>> withContentType(String contentType, Map<String, String> headers) {
+        if (headers == null || headers.isEmpty()) {
+            return Map.of(Protocol.H_CONTENT_TYPE, List.of(contentType));
+        }
         Map<String, Iterable<String>> out = new LinkedHashMap<>();
         out.put(Protocol.H_CONTENT_TYPE, List.of(contentType));
-        if (headers == null) {
-            return out;
-        }
         for (Map.Entry<String, String> e : headers.entrySet()) {
             if (e.getKey() != null && e.getValue() != null) {
                 out.put(e.getKey(), List.of(e.getValue()));
@@ -141,14 +140,6 @@ public final class JdkDurableStreamsClient implements DurableStreamsClient {
         if (in == null) {
             return null;
         }
-        return readAllBytes(in);
-    }
-
-    private static byte[] readAllBytes(InputStream in) throws Exception {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        byte[] buf = new byte[8192];
-        int r;
-        while ((r = in.read(buf)) >= 0) out.write(buf, 0, r);
-        return out.toByteArray();
+        return in.readAllBytes();
     }
 }

@@ -1,47 +1,47 @@
 # durable-streams-java
 
-Java 17+ implementation of the Durable Streams protocol (Java 21+ recommended for virtual threads).
+Durable Streams 프로토콜의 Java 17+ 구현체 (가상 스레드 사용을 위해 Java 21+ 권장).
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/durable-streams/durable-streams-java)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 
-[Korean README (한국어)](README_ko.md)
+[English README](README.md)
 
-## Built modules
+## 빌드 모듈
 
-- `durable-streams-core` - protocol types and helpers
-- `durable-streams-client` - JDK HttpClient client
-- `durable-streams-json-spi` - JSON serialization SPI (library-agnostic)
-- `durable-streams-json-jackson` - Jackson implementation for JSON mode (optional)
-- `durable-streams-server-spi` - server storage/policy abstractions
-- `durable-streams-server-core` - protocol engine
-- `durable-streams-spring-webmvc` - Spring MVC integration helpers
-- `durable-streams-spring-webflux` - Spring WebFlux integration helpers
-- `durable-streams-micronaut` - Micronaut integration helpers
-- `durable-streams-quarkus` - Quarkus integration helpers
-- `durable-streams-conformance-runner` - conformance server/client runner
+- `durable-streams-core` - 프로토콜 타입 및 헬퍼
+- `durable-streams-client` - JDK HttpClient 기반 클라이언트
+- `durable-streams-json-spi` - JSON 직렬화 SPI (라이브러리 비종속적)
+- `durable-streams-json-jackson` - Jackson 기반 JSON 모드 구현 (선택 사항)
+- `durable-streams-server-spi` - 서버 저장소/정책 추상화
+- `durable-streams-server-core` - 프로토콜 엔진
+- `durable-streams-spring-webmvc` - Spring MVC 통합 헬퍼
+- `durable-streams-spring-webflux` - Spring WebFlux 통합 헬퍼
+- `durable-streams-micronaut` - Micronaut 통합 헬퍼
+- `durable-streams-quarkus` - Quarkus 통합 헬퍼
+- `durable-streams-conformance-runner` - 적합성 테스트용 서버/클라이언트 러너
 
-## Key Features & Architecture
+## 주요 기능 및 아키텍처
 
-- **High-Performance Storage**: Uses synchronous `FileChannel` I/O on Virtual Threads (Java 21+) with a bounded dedicated I/O executor to prevent platform thread starvation.
-- **Strict Concurrency**: Per-stream `ReentrantLock` ensures atomic appends and metadata updates, fixing race conditions found in other implementations.
-- **Efficient Waiting**: Lock-free await queues (`ConcurrentLinkedQueue`) for thousands of concurrent long-poll/SSE connections.
-- **Protocol Conformance**: Fully compliant with the Durable Streams protocol (131/131 tests passed), including:
-    - Strict byte-offset tracking
-    - Streaming JSON parsing (Jackson-based) for low memory footprint
-    - Correct ETag generation and cache control
-    - Proper handling of `Stream-Seq` for writer coordination
+- **고성능 스토리지**: Java 21+의 가상 스레드(Virtual Threads) 위에서 동기식 `FileChannel` I/O를 사용하며, 제한된 크기의 전용 I/O 실행기를 통해 플랫폼 스레드 고갈을 방지합니다.
+- **엄격한 동시성 제어**: 스트림별 `ReentrantLock`을 통해 원자적인 append 및 메타데이터 업데이트를 보장하여, 기존 구현체들에서 발견된 경합 조건(race condition)을 해결했습니다.
+- **효율적인 대기 처리**: `ConcurrentLinkedQueue`를 사용한 락-프리(lock-free) 대기 큐로 수천 개의 동시 롱폴링/SSE 연결을 효율적으로 처리합니다.
+- **프로토콜 완벽 준수**: Durable Streams 프로토콜 적합성 테스트 131/131 통과.
+    - 엄격한 바이트 오프셋 추적
+    - 저메모리 스트리밍 JSON 파싱 (Jackson 기반)
+    - 정확한 ETag 생성 및 캐시 제어
+    - 쓰기 조정을 위한 `Stream-Seq`의 올바른 처리
 
-## JSON mode
+## JSON 모드
 
-JSON mode is required by the protocol and implemented via the JSON SPI. You can use the Jackson module or provide your own codec implementation.
+프로토콜에서 요구하는 JSON 모드는 JSON SPI를 통해 구현됩니다. Jackson 모듈을 사용하거나 직접 코덱을 구현할 수 있습니다.
 
-- Default codec discovery uses `ServiceLoader` via `StreamCodecProvider`.
-- To avoid Jackson, ship your own module that implements `JsonCodec` and `StreamCodecProvider` for `application/json`.
+- 기본 코덱 발견은 `StreamCodecProvider`를 통한 `ServiceLoader`를 사용합니다.
+- Jackson을 피하고 싶다면 `JsonCodec`과 `StreamCodecProvider`를 구현한 자체 모듈을 `application/json`용으로 제공하면 됩니다.
 
-## Client usage
+## 클라이언트 사용법
 
-Basic usage:
+기본 사용법:
 
 ```java
 import io.durablestreams.client.AppendRequest;
@@ -57,7 +57,7 @@ client.append(new AppendRequest(streamUrl, "application/json", null, dataStream)
 var read = client.readCatchUp(new ReadRequest(streamUrl, Offset.beginning(), null));
 ```
 
-Custom transport (no ServiceLoader, GraalVM-friendly):
+커스텀 전송 계층 사용 (ServiceLoader 미사용, GraalVM 친화적):
 
 ```java
 import io.durablestreams.client.DurableStreamsClient;
@@ -71,9 +71,9 @@ DurableStreamsClient client = DurableStreamsClient.builder()
         .build();
 ```
 
-## Server integration examples
+## 서버 통합 예제
 
-These examples wire the protocol handler into common frameworks. They follow the same handler flow used in `durable-streams-conformance-runner`.
+다음은 공통 프레임워크에 프로토콜 핸들러를 연결하는 예제입니다. `durable-streams-conformance-runner`에서 사용된 것과 동일한 핸들러 흐름을 따릅니다.
 
 ### Javalin
 
@@ -434,11 +434,11 @@ final class DurableStreamsResource {
 }
 ```
 
-## Reactive integration examples
+## 반응형 통합 예제 (Reactive)
 
 ### Reactor
 
-Gradle dependencies:
+Gradle 의존성:
 
 ```kotlin
 dependencies {
@@ -447,7 +447,7 @@ dependencies {
 }
 ```
 
-Usage:
+사용법:
 
 ```java
 import io.durablestreams.client.DurableStreamsClient;
@@ -463,7 +463,7 @@ Flux<StreamEvent> flux = Flux.from(FlowAdapters.toPublisher(pub));
 
 ### RxJava3
 
-Gradle dependencies:
+Gradle 의존성:
 
 ```kotlin
 dependencies {
@@ -472,7 +472,7 @@ dependencies {
 }
 ```
 
-Usage:
+사용법:
 
 ```java
 import io.durablestreams.client.DurableStreamsClient;
@@ -485,9 +485,9 @@ Flow.Publisher<StreamEvent> pub = client.subscribeLongPoll(request);
 Flowable<StreamEvent> flowable = Flowable.fromPublisher(FlowAdapters.toPublisher(pub));
 ```
 
-### Kotlin coroutines
+### Kotlin Coroutines
 
-Gradle dependencies:
+Gradle 의존성:
 
 ```kotlin
 dependencies {
@@ -496,7 +496,7 @@ dependencies {
 }
 ```
 
-Usage:
+사용법:
 
 ```kotlin
 import io.durablestreams.client.DurableStreamsClient

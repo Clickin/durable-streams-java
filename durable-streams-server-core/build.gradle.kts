@@ -10,6 +10,7 @@ dependencies {
     api(project(":durable-streams-core"))
     api(project(":durable-streams-server-spi"))
     implementation(libs.lmdbjava)
+    implementation("com.fasterxml.jackson.core:jackson-core:2.18.2")
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.assertj.core)
     testRuntimeOnly(libs.junit.platform.launcher)
@@ -39,4 +40,3 @@ sourceSets {
         }
     }
 }
-

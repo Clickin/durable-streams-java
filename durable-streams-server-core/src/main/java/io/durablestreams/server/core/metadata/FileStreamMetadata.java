@@ -10,7 +10,8 @@ public record FileStreamMetadata(
         String streamId,
         StreamConfig config,
         Offset nextOffset,
-        Instant expiresAt
+        Instant expiresAt,
+        String lastSeq
 ) {
     public FileStreamMetadata {
         Objects.requireNonNull(streamId, "streamId");
@@ -18,11 +19,19 @@ public record FileStreamMetadata(
         Objects.requireNonNull(nextOffset, "nextOffset");
     }
 
+    public FileStreamMetadata(String streamId, StreamConfig config, Offset nextOffset, Instant expiresAt) {
+        this(streamId, config, nextOffset, expiresAt, null);
+    }
+
     public boolean isExpired(Instant now) {
         return expiresAt != null && !expiresAt.isAfter(now);
     }
 
     public FileStreamMetadata withNextOffset(Offset newOffset) {
-        return new FileStreamMetadata(streamId, config, newOffset, expiresAt);
+        return new FileStreamMetadata(streamId, config, newOffset, expiresAt, lastSeq);
+    }
+
+    public FileStreamMetadata withNextOffsetAndSeq(Offset newOffset, String newSeq) {
+        return new FileStreamMetadata(streamId, config, newOffset, expiresAt, newSeq);
     }
 }
