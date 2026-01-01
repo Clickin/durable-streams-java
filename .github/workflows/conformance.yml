@@ -39,7 +39,7 @@ jobs:
         run: chmod +x ./gradlew 
 
       - name: Compile conformance runner
-        run: ./gradlew :durable-streams-conformance-runner:compileJava
+        run: ./gradlew compileJava
 
       - name: Install conformance node dependencies
         run: npm ci
