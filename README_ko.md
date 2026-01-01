@@ -1,6 +1,8 @@
 # durable-streams-java
 
-Durable Streams 프로토콜의 Java 17+ 구현체 (가상 스레드 사용을 위해 Java 21+ 권장).
+Durable Streams 프로토콜의 Java 17+ 구현체.
+
+> **참고:** 이 라이브러리는 Java 17에서 실행되지만, **고성능 동시성 처리와 확장성을 위해 가상 스레드(Virtual Threads)를 지원하는 JDK 21+ 사용을 강력히 권장합니다.**
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/durable-streams/durable-streams-java)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
