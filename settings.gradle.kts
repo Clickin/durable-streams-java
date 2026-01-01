@@ -7,14 +7,16 @@ include(
   "durable-streams-json-jackson",
   "durable-streams-server-spi",
   "durable-streams-server-core",
-  "durable-streams-spring-webmvc",
+  "durable-streams-servlet",
   "durable-streams-spring-webflux",
   "durable-streams-micronaut",
   "durable-streams-quarkus",
   "durable-streams-conformance-runner",
   "durable-streams-benchmarks",
-  "quarkus-example",
-  "micronaut-example"
+  "example-quarkus",
+  "example-micronaut",
+  "example-spring-webflux",
+  "example-spring-webmvc"
 )
 
 

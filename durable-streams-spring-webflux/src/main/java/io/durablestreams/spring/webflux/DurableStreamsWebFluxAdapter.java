@@ -3,23 +3,29 @@ package io.durablestreams.spring.webflux;
 import io.durablestreams.server.core.DurableStreamsHandler;
 import io.durablestreams.server.core.HttpMethod;
 import io.durablestreams.server.core.ResponseBody;
-import io.durablestreams.server.core.SseFrame;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DefaultDataBufferFactory;
 import org.springframework.core.io.support.ResourceRegion;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Flow;
 
 public final class DurableStreamsWebFluxAdapter {
+    private static final DefaultDataBufferFactory DATA_BUFFER_FACTORY = new DefaultDataBufferFactory();
+
     private final DurableStreamsHandler handler;
 
     public DurableStreamsWebFluxAdapter(DurableStreamsHandler handler) {
@@ -29,8 +35,8 @@ public final class DurableStreamsWebFluxAdapter {
     public Mono<ServerResponse> handle(ServerRequest req) {
         return req.bodyToMono(byte[].class)
                 .defaultIfEmpty(new byte[0])
-                .flatMap(body -> Mono.fromCallable(() -> toEngineRequest(req, body))
-                        .map(handler::handle)
+                .flatMap(body -> Mono.fromCallable(() -> handler.handle(toEngineRequest(req, body)))
+                        .subscribeOn(Schedulers.boundedElastic())
                         .flatMap(this::toWebResponse));
     }
 
@@ -58,8 +64,13 @@ public final class DurableStreamsWebFluxAdapter {
             return builder.body(BodyInserters.fromValue(resourceRegion));
         }
         if (body instanceof ResponseBody.Sse sse) {
-            Flux<String> stream = fluxFrom(sse.publisher()).map(SseFrame::render);
-            return builder.contentType(MediaType.TEXT_EVENT_STREAM).body(stream, String.class);
+            Flux<DataBuffer> stream = fluxFrom(sse.publisher())
+                    .map(frame -> DATA_BUFFER_FACTORY.wrap(frame.render().getBytes(StandardCharsets.UTF_8)));
+
+            return builder.headers(headers -> {
+                headers.set(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_EVENT_STREAM_VALUE);
+                headers.remove(HttpHeaders.CONTENT_LENGTH);
+            }).body(stream, DataBuffer.class);
         }
         return builder.build();
     }

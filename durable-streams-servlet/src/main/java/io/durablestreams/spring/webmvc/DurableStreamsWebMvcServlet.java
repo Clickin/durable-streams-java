@@ -54,10 +54,11 @@ public final class DurableStreamsWebMvcServlet extends HttpServlet {
             }
             if (body instanceof ResponseBody.Sse sse) {
                 resp.setContentType("text/event-stream");
-                resp.setCharacterEncoding(StandardCharsets.UTF_8.name());
 
                 AsyncContext async = req.startAsync();
                 async.setTimeout(0);
+
+                java.util.concurrent.atomic.AtomicBoolean completed = new java.util.concurrent.atomic.AtomicBoolean(false);
 
                 Flow.Publisher<SseFrame> pub = sse.publisher();
                 pub.subscribe(new Flow.Subscriber<>() {
@@ -76,18 +77,24 @@ public final class DurableStreamsWebMvcServlet extends HttpServlet {
                             resp.getOutputStream().flush();
                         } catch (IOException e) {
                             subscription.cancel();
-                            async.complete();
+                            if (completed.compareAndSet(false, true)) {
+                                async.complete();
+                            }
                         }
                     }
 
                     @Override
                     public void onError(Throwable throwable) {
-                        async.complete();
+                        if (completed.compareAndSet(false, true)) {
+                            async.complete();
+                        }
                     }
 
                     @Override
                     public void onComplete() {
-                        async.complete();
+                        if (completed.compareAndSet(false, true)) {
+                            async.complete();
+                        }
                     }
                 });
             }

@@ -13,12 +13,12 @@ const baseUrl = process.env.STREAM_URL ?? "http://localhost:4437";
 
 function startServer() {
   if (isWindows) {
-    return spawn("cmd.exe", ["/c", gradlew, ":example-quarkus:quarkusRun"], {
+    return spawn("cmd.exe", ["/c", gradlew, ":example-spring-webmvc:bootRun"], {
       stdio: "inherit",
       cwd: rootDir,
     });
   }
-  return spawn(gradlew, [":example-quarkus:quarkusRun"], {
+  return spawn(gradlew, [":example-spring-webmvc:bootRun"], {
     stdio: "inherit",
     cwd: rootDir,
   });
@@ -56,7 +56,7 @@ const serverProcess = startServer();
 
 beforeAll(async () => {
   await waitForServer(baseUrl);
-}, 20000);
+}, 30000);
 
 afterAll(async () => {
   await stopServer(serverProcess);

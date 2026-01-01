@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: durable.streams.webflux
+  codec:
+    max-in-memory-size: 50MB
+
+server:
+  port: 4437
