@@ -49,6 +49,22 @@ jobs:
         run: npm run test:server
         working-directory: ./conformance-node
 
+      - name: Run quarkus conformance tests
+        run: npm run test:quarkus
+        working-directory: ./conformance-node
+
+      - name: Run micronaut conformance tests
+        run: npm run test:micronaut
+        working-directory: ./conformance-node
+
+      - name: Run spring-webflux conformance tests
+        run: npm run test:springwebflux
+        working-directory: ./conformance-node
+
+      - name: Run spring-webmvc conformance tests
+        run: npm run test:springwebmvc
+        working-directory: ./conformance-node
+
       - name: Run client conformance tests
         run: npm run test:client 
         working-directory: ./conformance-node
