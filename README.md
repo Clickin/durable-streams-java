@@ -2,7 +2,7 @@
 
 Java 17+ implementation of the Durable Streams protocol.
 
-> **Note:** While this library runs on Java 17, **JDK 21+ is highly recommended** to leverage Virtual Threads for high-concurrency performance and scalability.
+> **Note:** While this library can run on Java 17, **JDK 21+ is highly recommended** to leverage Virtual Threads for high-concurrency performance and scalability.
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/durable-streams/durable-streams-java)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)

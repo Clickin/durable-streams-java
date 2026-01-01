@@ -11,6 +11,9 @@ on:
 jobs:
   conformance:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,18 +25,30 @@ jobs:
           java-version: "17"
           cache: gradle
 
-      - name: Set up Node.js 20
+      - name: Set up Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: npm
           cache-dependency-path: conformance-node/package-lock.json
 
+      - name: List files
+        run: ls -la
+
+      - name: Set gradlew permission
+        run: chmod +x ./gradlew 
+
+      - name: Compile conformance runner
+        run: ./gradlew :durable-streams-conformance-runner:compileJava
+
       - name: Install conformance node dependencies
-        run: npm ci --prefix conformance-node
+        run: npm ci
+        working-directory: ./conformance-node
 
       - name: Run server conformance tests
-        run: ./conformance-test.sh
+        run: npm run test:server
+        working-directory: ./conformance-node
 
       - name: Run client conformance tests
-        run: ./conformance-client-test.sh
+        run: npm run test:client 
+        working-directory: ./conformance-node
