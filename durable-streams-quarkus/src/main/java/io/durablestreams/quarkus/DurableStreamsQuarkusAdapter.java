@@ -12,7 +12,6 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
 import jakarta.ws.rs.sse.OutboundSseEvent;
 import jakarta.ws.rs.sse.Sse;
-import org.reactivestreams.Publisher;
 
 import java.io.ByteArrayInputStream;
 import java.net.URI;
@@ -33,8 +32,7 @@ public final class DurableStreamsQuarkusAdapter {
     public static Multi<OutboundSseEvent> sse(UriInfo uriInfo, HttpHeaders headers, DurableStreamsHandler handler, Sse sse) {
         ServerResponse response = handler.handle(toEngineRequest(HttpMethod.GET, uriInfo, headers, null));
         if (response.body() instanceof ResponseBody.Sse sseBody) {
-            Publisher<SseFrame> publisher = toReactivePublisher(sseBody.publisher());
-            return Multi.createFrom().publisher(publisher)
+            return Multi.createFrom().publisher(sseBody.publisher())
                     .map(frame -> sse.newEventBuilder()
                             .name(frame.event())
                             .data(String.class, frame.data())
@@ -66,40 +64,6 @@ public final class DurableStreamsQuarkusAdapter {
             return builder.entity(openRegionStream(region.region())).build();
         }
         return builder.build();
-    }
-
-    private static <T> Publisher<T> toReactivePublisher(Flow.Publisher<T> publisher) {
-        return subscriber -> publisher.subscribe(new Flow.Subscriber<>() {
-            @Override
-            public void onSubscribe(Flow.Subscription subscription) {
-                subscriber.onSubscribe(new org.reactivestreams.Subscription() {
-                    @Override
-                    public void request(long n) {
-                        subscription.request(n);
-                    }
-
-                    @Override
-                    public void cancel() {
-                        subscription.cancel();
-                    }
-                });
-            }
-
-            @Override
-            public void onNext(T item) {
-                subscriber.onNext(item);
-            }
-
-            @Override
-            public void onError(Throwable throwable) {
-                subscriber.onError(throwable);
-            }
-
-            @Override
-            public void onComplete() {
-                subscriber.onComplete();
-            }
-        });
     }
 
     private static java.io.InputStream openRegionStream(io.durablestreams.server.spi.ReadOutcome.FileRegion region) {

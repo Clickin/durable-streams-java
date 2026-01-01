@@ -55,7 +55,7 @@ public final class DurableStreamsWebFluxAdapter {
         }
         if (body instanceof ResponseBody.FileRegion region) {
             ResourceRegion resourceRegion = new ResourceRegion(new FileSystemResource(region.region().path()), region.region().position(), region.region().length());
-            return builder.body(BodyInserters.fromResource(resourceRegion));
+            return builder.body(BodyInserters.fromValue(resourceRegion));
         }
         if (body instanceof ResponseBody.Sse sse) {
             Flux<String> stream = fluxFrom(sse.publisher()).map(SseFrame::render);

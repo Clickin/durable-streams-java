@@ -36,7 +36,7 @@ class NioFileStreamStoreTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws Exception {
         store.close();
     }
 
