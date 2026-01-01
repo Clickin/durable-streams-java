@@ -369,12 +369,11 @@ public final class DurableStreamsHandler {
                 // ETag/If-None-Match handling (protocol MUST support 304 when matches)
                 String etag = out.etag();
                 String inm = firstHeader(req, Protocol.H_IF_NONE_MATCH).orElse(null);
-                if (etag != null && inm != null && inm.equals(etag)) {
-                    ServerResponse r = new ServerResponse(304, new ResponseBody.Empty())
+                if (inm != null && inm.equals(etag)) {
+                    yield new ServerResponse(304, new ResponseBody.Empty())
                             .header("Cache-Control", "no-store")
                             .header(Protocol.H_ETAG, etag)
                             .header(Protocol.H_STREAM_NEXT_OFFSET, out.nextOffset().value());
-                    yield r;
                 }
 
                 ServerResponse r;

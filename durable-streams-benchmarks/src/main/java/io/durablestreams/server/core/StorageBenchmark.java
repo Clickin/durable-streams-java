@@ -103,6 +103,7 @@ public class StorageBenchmark {
         long duration = System.nanoTime() - start;
         printResult("Concurrent Write", duration, BENCHMARK_ITERATIONS);
         ex.shutdown();
+        ex.close();
     }
 
     private static void benchmarkConcurrentRead(BlockingFileStreamStore store) throws Exception {
@@ -125,6 +126,7 @@ public class StorageBenchmark {
         long duration = System.nanoTime() - start;
         printResult("Concurrent Read", duration, BENCHMARK_ITERATIONS);
         ex.shutdown();
+        ex.close();
     }
 
     private static void printResult(String name, long nanos, int iterations) {

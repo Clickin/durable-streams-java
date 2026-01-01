@@ -43,7 +43,7 @@ public final class InMemoryMetadataStore implements MetadataStore {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         store.clear();
     }
 }

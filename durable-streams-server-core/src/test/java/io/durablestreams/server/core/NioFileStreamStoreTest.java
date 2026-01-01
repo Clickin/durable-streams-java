@@ -271,9 +271,8 @@ class NioFileStreamStoreTest {
     @Test
     void streamWithTtlExpires() throws Exception {
         MutableClock clock = new MutableClock(Instant.parse("2025-01-01T00:00:00Z"));
-        NioFileStreamStore timedStore = new NioFileStreamStore(tempDir.resolve("timed"), clock);
 
-        try {
+        try (NioFileStreamStore timedStore = new NioFileStreamStore(tempDir.resolve("timed"), clock)) {
             URI url = URI.create("http://localhost/streams/ttl-test");
             StreamConfig config = new StreamConfig("text/plain", 1L, null); // 1 second TTL
 
@@ -287,8 +286,6 @@ class NioFileStreamStoreTest {
 
             // Should be gone
             assertThat(timedStore.head(url).get(5, TimeUnit.SECONDS)).isEmpty();
-        } finally {
-            timedStore.close();
         }
     }
 

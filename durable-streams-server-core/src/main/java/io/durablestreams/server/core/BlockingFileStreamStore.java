@@ -226,7 +226,7 @@ public final class BlockingFileStreamStore implements StreamStore, AutoCloseable
         return meta.streamId() + ":" + LexiLong.encode(start) + ":" + LexiLong.encode(end);
     }
 
-    private ReadOutcome readBinary(Path path, FileStreamMetadata meta, long start, int limit, long fileSize) throws IOException {
+    private ReadOutcome readBinary(Path path, FileStreamMetadata meta, long start, int limit, long fileSize) {
         int effectiveLimit = limit <= 0 ? 64 * 1024 : Math.min(limit, 1024 * 1024);
         int toRead = (int) Math.min(effectiveLimit, fileSize - start);
 
@@ -380,7 +380,7 @@ public final class BlockingFileStreamStore implements StreamStore, AutoCloseable
             try (var walk = Files.walk(dir)) {
                 walk.sorted(Comparator.reverseOrder())
                         .forEach(p -> {
-                            try { Files.delete(p); } catch (IOException e) {}
+                            try { Files.delete(p); } catch (IOException ignored) {}
                         });
             }
         }
