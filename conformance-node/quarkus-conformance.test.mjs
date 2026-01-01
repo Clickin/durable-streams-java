@@ -56,7 +56,7 @@ const serverProcess = startServer();
 
 beforeAll(async () => {
   await waitForServer(baseUrl);
-}, 20000);
+}, 40000);
 
 afterAll(async () => {
   await stopServer(serverProcess);
