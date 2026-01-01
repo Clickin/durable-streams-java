@@ -1,12 +1,13 @@
 # durable-streams-java
 
-Java 17+ implementation of the Durable Streams protocol.
+Java 17+ implementation of the [Durable Streams](https://github.com/durable-streams/durable-streams) protocol.
+
+Passes the durable-streams conformance suite.
 
 > **Note:** While this library can run on Java 17, **JDK 21+ is highly recommended** to leverage Virtual Threads for high-concurrency performance and scalability.
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/durable-streams/durable-streams-java)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
-
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [Korean README (한국어)](README_ko.md)
 
 ## Built modules
@@ -25,7 +26,7 @@ Java 17+ implementation of the Durable Streams protocol.
 
 ## Key Features & Architecture
 
-- **High-Performance Storage**: Uses synchronous `FileChannel` I/O on Virtual Threads (Java 21+) with a bounded dedicated I/O executor to prevent platform thread starvation.
+- **High-Performance File Storage**: Uses synchronous `FileChannel` I/O on Virtual Threads (Java 21+) with a bounded dedicated I/O executor to prevent platform thread starvation.
 - **Strict Concurrency**: Per-stream `ReentrantLock` ensures atomic appends and metadata updates.
 - **Efficient Waiting**: Lock-free await queues (`ConcurrentLinkedQueue`) for thousands of concurrent long-poll/SSE connections.
 - **Protocol Conformance**: Fully compliant with the Durable Streams protocol (131/131 tests passed), including:

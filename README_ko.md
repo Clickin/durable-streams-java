@@ -1,11 +1,13 @@
 # durable-streams-java
 
-Durable Streams 프로토콜의 Java 17+ 구현체.
+[Durable Streams](https://github.com/durable-streams/durable-streams) 프로토콜의 Java 17+ 구현체.
 
-> **참고:** 이 라이브러리는 Java 17에서 실행되지만, **고성능 동시성 처리와 확장성을 위해 가상 스레드(Virtual Threads)를 지원하는 JDK 21+ 사용을 강력히 권장합니다.**
+durable-streams 의 적합성 테스트 통과
+
+> **참고:** 이 라이브러리는 Java 17부터 사용가능하지만, **고성능 동시성 처리와 확장성을 위해 가상 스레드(Virtual Threads)를 지원하는 JDK 21 이상을 강력히 권장합니다.**
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/durable-streams/durable-streams-java)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 [English README](README.md)
 
@@ -25,9 +27,9 @@ Durable Streams 프로토콜의 Java 17+ 구현체.
 
 ## 주요 기능 및 아키텍처
 
-- **고성능 스토리지**: Java 21+의 가상 스레드(Virtual Threads) 위에서 동기식 `FileChannel` I/O를 사용하며, 제한된 크기의 전용 I/O 실행기를 통해 플랫폼 스레드 고갈을 방지합니다.
+- **고성능 파일 스토리지**: Java 21+의 가상 스레드(Virtual Threads) 위에서 동기식 `FileChannel` I/O를 사용하며, 제한된 크기의 전용 I/O 실행기를 통해 플랫폼 스레드 고갈을 방지합니다.
 - **엄격한 동시성 제어**: 스트림별 `ReentrantLock`을 통해 원자적인 append 및 메타데이터 업데이트를 보장합니다..
-- **효율적인 대기 처리**: `ConcurrentLinkedQueue`를 사용한 락-프리(lock-free) 대기 큐로 수천 개의 동시 롱폴링/SSE 연결을 효율적으로 처리합니다.
+- **효율적인 대기 처리**: `ConcurrentLinkedQueue`를 사용한 락-프리(lock-free) 대기 큐로 수천 개 이상의 동시 롱폴링/SSE 연결을 효율적으로 처리합니다.
 - **프로토콜 완벽 준수**: Durable Streams 프로토콜 적합성 테스트 131/131 통과.
     - 엄격한 바이트 오프셋 추적
     - 저메모리 스트리밍 JSON 파싱 (Jackson 기본값)
