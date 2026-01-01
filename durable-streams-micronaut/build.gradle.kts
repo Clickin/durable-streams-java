@@ -5,9 +5,8 @@ java { toolchain { languageVersion.set(JavaLanguageVersion.of(17)) } }
 dependencies {
     api(project(":durable-streams-server-core"))
     api(project(":durable-streams-client"))
-    api("io.micronaut:micronaut-http:4.7.0")
-    api("io.micronaut:micronaut-http-server:4.7.0")
-    annotationProcessor("io.micronaut:micronaut-inject-java:4.7.0")
+    compileOnly("io.micronaut:micronaut-http:4.7.0")
+    compileOnly("io.micronaut:micronaut-http-server:4.7.0")
     compileOnly("jakarta.annotation:jakarta.annotation-api:2.1.1")
 }
 

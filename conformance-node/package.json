@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test:server": "vitest run server-conformance.test.mjs",
-    "test:client": "vitest run client-conformance.test.mjs"
+    "test:client": "vitest run client-conformance.test.mjs",
+    "test:micronaut": "vitest run micronaut-conformance.test.mjs",
+    "test:quarkus": "vitest run quarkus-conformance.test.mjs"
   },
   "keywords": [],
   "author": "",

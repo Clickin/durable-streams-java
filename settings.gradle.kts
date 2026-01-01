@@ -12,6 +12,9 @@ include(
   "durable-streams-micronaut",
   "durable-streams-quarkus",
   "durable-streams-conformance-runner",
-  "durable-streams-benchmarks"
+  "durable-streams-benchmarks",
+  "quarkus-example",
+  "micronaut-example"
 )
+
 

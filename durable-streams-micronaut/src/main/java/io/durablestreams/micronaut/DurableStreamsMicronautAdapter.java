@@ -12,6 +12,7 @@ import io.micronaut.http.HttpStatus;
 import io.micronaut.http.MediaType;
 import io.micronaut.http.MutableHttpResponse;
 import io.micronaut.http.sse.Event;
+import jakarta.annotation.Nonnull;
 import org.reactivestreams.Publisher;
 
 import java.io.ByteArrayInputStream;
@@ -47,9 +48,41 @@ public final class DurableStreamsMicronautAdapter {
         return out;
     }
 
+    private static URI toAbsoluteUri(HttpRequest<?> request) {
+        URI uri = request.getUri();
+        if (uri.getScheme() != null && uri.getAuthority() != null) {
+            return uri;
+        }
+
+        String host = request.getHeaders().get("Host");
+        if (host == null || host.isBlank()) {
+            host = request.getServerName();
+        }
+        if (host == null || host.isBlank()) {
+            return uri;
+        }
+
+        String scheme = request.isSecure() ? "https" : "http";
+        String rawPath = uri.getRawPath();
+        String rawQuery = uri.getRawQuery();
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(scheme).append("://").append(host);
+        if (rawPath != null && !rawPath.isEmpty()) {
+            if (rawPath.charAt(0) != '/') {
+                sb.append('/');
+            }
+            sb.append(rawPath);
+        }
+        if (rawQuery != null && !rawQuery.isEmpty()) {
+            sb.append('?').append(rawQuery);
+        }
+        return URI.create(sb.toString());
+    }
+
     private static ServerRequest toEngineRequest(HttpRequest<byte[]> request) {
         HttpMethod method = HttpMethod.valueOf(request.getMethodName());
-        URI uri = request.getUri();
+        URI uri = toAbsoluteUri(request);
 
         Map<String, List<String>> headers = new LinkedHashMap<>();
         request.getHeaders().names().forEach(name -> headers.put(name, request.getHeaders().getAll(name)));
@@ -110,7 +143,7 @@ public final class DurableStreamsMicronautAdapter {
                 }
 
                 @Override
-                public int read(byte[] b, int off, int len) throws java.io.IOException {
+                public int read(@Nonnull byte[] b, int off, int len) throws java.io.IOException {
                     if (remaining <= 0) return -1;
                     int toRead = (int) Math.min(len, remaining);
                     int read = super.read(b, off, toRead);
