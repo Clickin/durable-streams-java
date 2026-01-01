@@ -29,10 +29,19 @@ import java.util.*;
  */
 public final class DurableStreamsHandler {
 
-    /** Default maximum request body size: 10 MB */
+    /**
+     * Convenience constant: 10 MB.
+     *
+     * <p>Not used by default.
+     */
+    @SuppressWarnings("unused")
     public static final long DEFAULT_MAX_BODY_SIZE = 10 * 1024 * 1024;
 
-    /** Constant to disable body size limiting (let framework handle it) */
+    /**
+     * Disable body size limiting (unlimited).
+     *
+     * <p>This is the default; let the hosting framework enforce limits.
+     */
     public static final long NO_BODY_SIZE_LIMIT = Long.MAX_VALUE;
 
     private final StreamStore store;
@@ -68,7 +77,7 @@ public final class DurableStreamsHandler {
         this.maxChunkSize = builder.maxChunkSize > 0 ? builder.maxChunkSize : 64 * 1024;
         this.clock = builder.clock != null ? builder.clock : Clock.systemUTC();
         this.rateLimiter = builder.rateLimiter != null ? builder.rateLimiter : RateLimiter.permitAll();
-        this.maxBodySize = builder.maxBodySize > 0 ? builder.maxBodySize : DEFAULT_MAX_BODY_SIZE;
+        this.maxBodySize = builder.maxBodySize > 0 ? builder.maxBodySize : NO_BODY_SIZE_LIMIT;
     }
 
     /**
@@ -136,9 +145,10 @@ public final class DurableStreamsHandler {
         }
 
         /**
-         * Sets the maximum request body size in bytes. Default: 10 MB.
+         * Sets the maximum request body size in bytes. Default: unlimited.
          *
-         * <p>Use {@link DurableStreamsHandler#NO_BODY_SIZE_LIMIT} when the framework handles body size limiting externally.
+         * <p>Use {@link DurableStreamsHandler#DEFAULT_MAX_BODY_SIZE} as a conservative default, or
+         * {@link DurableStreamsHandler#NO_BODY_SIZE_LIMIT} to disable limiting.
          */
         public Builder maxBodySize(long maxBodySize) {
             this.maxBodySize = maxBodySize;
@@ -343,7 +353,7 @@ public final class DurableStreamsHandler {
         return mapReadOutcome(out, req, url, true, clientCursor);
     }
 
-    private ServerResponse handleSse(ServerRequest req, URI url, Map<String, String> q) throws Exception {
+    private ServerResponse handleSse(@SuppressWarnings("unused") ServerRequest req, URI url, Map<String, String> q) throws Exception {
         String off = q.get(Protocol.Q_OFFSET);
         if (off == null) throw new BadRequest("offset required for sse");
         Offset offset = parseOffset(off);

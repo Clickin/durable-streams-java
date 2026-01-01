@@ -17,7 +17,7 @@ Durable Streams 프로토콜의 Java 17+ 구현체.
 - `durable-streams-json-jackson` - Jackson 기반 JSON 모드 구현 (선택 사항)
 - `durable-streams-server-spi` - 서버 저장소/정책 추상화
 - `durable-streams-server-core` - 프로토콜 엔진
-- `durable-streams-spring-webmvc` - Spring MVC 통합 헬퍼
+- `durable-streams-servlet` - Servlet 통합 헬퍼(Spring MVC 등)
 - `durable-streams-spring-webflux` - Spring WebFlux 통합 헬퍼
 - `durable-streams-micronaut` - Micronaut 통합 헬퍼
 - `durable-streams-quarkus` - Quarkus 통합 헬퍼
@@ -26,11 +26,11 @@ Durable Streams 프로토콜의 Java 17+ 구현체.
 ## 주요 기능 및 아키텍처
 
 - **고성능 스토리지**: Java 21+의 가상 스레드(Virtual Threads) 위에서 동기식 `FileChannel` I/O를 사용하며, 제한된 크기의 전용 I/O 실행기를 통해 플랫폼 스레드 고갈을 방지합니다.
-- **엄격한 동시성 제어**: 스트림별 `ReentrantLock`을 통해 원자적인 append 및 메타데이터 업데이트를 보장하여, 기존 구현체들에서 발견된 경합 조건(race condition)을 해결했습니다.
+- **엄격한 동시성 제어**: 스트림별 `ReentrantLock`을 통해 원자적인 append 및 메타데이터 업데이트를 보장합니다..
 - **효율적인 대기 처리**: `ConcurrentLinkedQueue`를 사용한 락-프리(lock-free) 대기 큐로 수천 개의 동시 롱폴링/SSE 연결을 효율적으로 처리합니다.
 - **프로토콜 완벽 준수**: Durable Streams 프로토콜 적합성 테스트 131/131 통과.
     - 엄격한 바이트 오프셋 추적
-    - 저메모리 스트리밍 JSON 파싱 (Jackson 기반)
+    - 저메모리 스트리밍 JSON 파싱 (Jackson 기본값)
     - 정확한 ETag 생성 및 캐시 제어
     - 쓰기 조정을 위한 `Stream-Seq`의 올바른 처리
 
@@ -52,7 +52,7 @@ import io.durablestreams.client.DurableStreamsClient;
 import io.durablestreams.client.ReadRequest;
 import io.durablestreams.core.Offset;
 
-DurableStreamsClient client = DurableStreamsClient.create();
+DurableStreamsClient client = DurableStreamsClient.create(); // 기본값으로 JDK 내장 HTTP client 사용
 
 client.create(new CreateRequest(streamUrl, "application/json", null, null));
 client.append(new AppendRequest(streamUrl, "application/json", null, dataStream));
@@ -189,251 +189,181 @@ static void writeSse(Context ctx, Flow.Publisher<SseFrame> publisher) throws Exc
             done.countDown();
         }
     });
-    done.await(70, TimeUnit.SECONDS);
+    done.await();
 }
 ```
 
 ### Spring WebFlux
 
 ```java
+package com.example.durable.streams.webmvc.webflux;
+
+import io.durablestreams.server.core.CachePolicy;
 import io.durablestreams.server.core.DurableStreamsHandler;
-import io.durablestreams.server.core.HttpMethod;
-import io.durablestreams.server.core.ResponseBody;
-import io.durablestreams.server.core.SseFrame;
+import io.durablestreams.server.core.InMemoryStreamStore;
+import io.durablestreams.server.spi.CursorPolicy;
+import io.durablestreams.spring.webflux.DurableStreamsWebFluxAdapter;
 import org.springframework.context.annotation.Bean;
-import org.springframework.http.MediaType;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.RouterFunctions;
-import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.time.Clock;
+import java.time.Duration;
 
-@Bean
-RouterFunction<ServerResponse> durableStreamsRoutes(DurableStreamsHandler handler) {
-    return RouterFunctions.route()
-            .add(RouterFunctions.route(req -> true, req -> handle(req, handler)))
-            .build();
-}
+@Configuration
+public class RouterConfig {
+    @Bean
+    public DurableStreamsHandler durableStreamsHandler() {
+        return DurableStreamsHandler.builder(new InMemoryStreamStore())
+                .cursorPolicy(new CursorPolicy(Clock.systemUTC()))
+                .cachePolicy(CachePolicy.defaultPrivate())
+                .longPollTimeout(Duration.ofSeconds(25))
+                .sseMaxDuration(Duration.ofSeconds(60))
+                .build();
+    }
 
-private Mono<ServerResponse> handle(ServerRequest req, DurableStreamsHandler handler) {
-    return req.bodyToMono(byte[].class)
-            .defaultIfEmpty(new byte[0])
-            .flatMap(body -> {
-                io.durablestreams.server.core.ServerRequest dsReq = new io.durablestreams.server.core.ServerRequest(
-                        HttpMethod.valueOf(req.methodName()),
-                        req.uri(),
-                        toHeaders(req),
-                        body.length == 0 ? null : new java.io.ByteArrayInputStream(body)
-                );
-                io.durablestreams.server.core.ServerResponse dsResp = handler.handle(dsReq);
-                ServerResponse.BodyBuilder builder = ServerResponse.status(dsResp.status());
-                dsResp.headers().forEach((k, v) -> v.forEach(value -> builder.header(k, value)));
+    @Bean
+    public DurableStreamsWebFluxAdapter durableStreamsWebFluxAdapter(DurableStreamsHandler handler) {
+        return new DurableStreamsWebFluxAdapter(handler);
+    }
 
-                if (dsResp.body() instanceof ResponseBody.Empty) {
-                    return builder.build();
-                }
-                if (dsResp.body() instanceof ResponseBody.Bytes bytes) {
-                    return builder.bodyValue(bytes.bytes());
-                }
-                if (dsResp.body() instanceof ResponseBody.Sse sse) {
-                    Flux<String> stream = Flux.from(sse.publisher()).map(SseFrame::render);
-                    return builder.contentType(MediaType.TEXT_EVENT_STREAM).body(stream, String.class);
-                }
-                return builder.build();
-            });
-}
-
-private Map<String, List<String>> toHeaders(ServerRequest req) {
-    Map<String, List<String>> headers = new LinkedHashMap<>();
-    req.headers().asHttpHeaders().forEach((k, v) -> headers.put(k, List.copyOf(v)));
-    return headers;
+    @Bean
+    public RouterFunction<ServerResponse> durableStreamsRoutes(DurableStreamsWebFluxAdapter adapter) {
+        return RouterFunctions.route()
+                .add(RouterFunctions.route(req -> true, adapter::handle))
+                .build();
+    }
 }
 ```
 
 ### Micronaut
 
 ```java
+import io.durablestreams.micronaut.DurableStreamsMicronautAdapter;
+import io.durablestreams.server.core.CachePolicy;
 import io.durablestreams.server.core.DurableStreamsHandler;
-import io.durablestreams.server.core.HttpMethod;
-import io.durablestreams.server.core.ResponseBody;
-import io.durablestreams.server.core.ServerRequest;
-import io.durablestreams.server.core.ServerResponse;
-import io.durablestreams.server.core.SseFrame;
-import io.micronaut.http.HttpHeaders;
+import io.durablestreams.server.core.InMemoryStreamStore;
+import io.durablestreams.server.spi.CursorPolicy;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.MediaType;
+import io.micronaut.http.annotation.Consumes;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Delete;
 import io.micronaut.http.annotation.Get;
-import io.micronaut.http.annotation.Head;
+import io.micronaut.http.annotation.PathVariable;
 import io.micronaut.http.annotation.Post;
 import io.micronaut.http.annotation.Put;
-import org.reactivestreams.Publisher;
-import reactor.core.publisher.Flux;
+import io.micronaut.http.annotation.Produces;
+import io.micronaut.scheduling.TaskExecutors;
+import io.micronaut.scheduling.annotation.ExecuteOn;
 
+import java.time.Clock;
+import java.time.Duration;
+
+@ExecuteOn(TaskExecutors.BLOCKING)
+@Produces(MediaType.ALL)
+@Consumes(MediaType.ALL)
 @Controller("/")
 final class DurableStreamsController {
-    private final DurableStreamsHandler handler;
+  private final DurableStreamsHandler handler = DurableStreamsHandler.builder(new InMemoryStreamStore())
+          .cursorPolicy(new CursorPolicy(Clock.systemUTC()))
+          .cachePolicy(CachePolicy.defaultPrivate())
+          .longPollTimeout(Duration.ofSeconds(25))
+          .sseMaxDuration(Duration.ofSeconds(60))
+          .build();
 
-    DurableStreamsController(DurableStreamsHandler handler) {
-        this.handler = handler;
-    }
+  @Get("/{+path}")
+  HttpResponse<?> get(@PathVariable("path") String path, HttpRequest<byte[]> request) {
+    return handle(request);
+  }
 
-    @Get("/{+path}")
-    HttpResponse<?> get(HttpRequest<byte[]> request) {
-        return handle(request);
-    }
+  @Post("/{+path}")
+  HttpResponse<?> post(@PathVariable("path") String path, HttpRequest<byte[]> request) {
+    return handle(request);
+  }
 
-    @Post("/{+path}")
-    HttpResponse<?> post(HttpRequest<byte[]> request) {
-        return handle(request);
-    }
+  @Put("/{+path}")
+  HttpResponse<?> put(@PathVariable("path") String path, HttpRequest<byte[]> request) {
+    return handle(request);
+  }
 
-    @Put("/{+path}")
-    HttpResponse<?> put(HttpRequest<byte[]> request) {
-        return handle(request);
-    }
+  @Delete("/{+path}")
+  HttpResponse<?> delete(@PathVariable("path") String path, HttpRequest<byte[]> request) {
+    return handle(request);
+  }
 
-    @Delete("/{+path}")
-    HttpResponse<?> delete(HttpRequest<byte[]> request) {
-        return handle(request);
-    }
-
-    @Head("/{+path}")
-    HttpResponse<?> head(HttpRequest<byte[]> request) {
-        return handle(request);
-    }
-
-    private HttpResponse<?> handle(HttpRequest<byte[]> request) {
-        ServerRequest dsReq = new ServerRequest(
-                HttpMethod.valueOf(request.getMethod().name()),
-                request.getUri(),
-                request.getHeaders().asMap(),
-                bodyOrNull(request.getBody().orElse(null))
-        );
-        ServerResponse dsResp = handler.handle(dsReq);
-        HttpResponse<?> out = HttpResponse.status(dsResp.status());
-        dsResp.headers().forEach((k, v) -> v.forEach(value -> out.header(k, value)));
-
-        if (dsResp.body() instanceof ResponseBody.Empty) {
-            return out;
-        }
-        if (dsResp.body() instanceof ResponseBody.Bytes bytes) {
-            return out.body(bytes.bytes());
-        }
-        if (dsResp.body() instanceof ResponseBody.Sse sse) {
-            Publisher<String> stream = Flux.from(sse.publisher()).map(SseFrame::render);
-            return out.contentType(MediaType.TEXT_EVENT_STREAM).body(stream);
-        }
-        return out;
-    }
-
-    private java.io.InputStream bodyOrNull(byte[] body) {
-        if (body == null || body.length == 0) {
-            return null;
-        }
-        return new java.io.ByteArrayInputStream(body);
-    }
+  private HttpResponse<?> handle(HttpRequest<byte[]> request) {
+    return DurableStreamsMicronautAdapter.handle(request, handler);
+  }
 }
 ```
 
 ### Quarkus (RESTEasy Reactive)
 
 ```java
+import io.durablestreams.quarkus.DurableStreamsQuarkusAdapter;
+import io.durablestreams.server.core.CachePolicy;
 import io.durablestreams.server.core.DurableStreamsHandler;
 import io.durablestreams.server.core.HttpMethod;
-import io.durablestreams.server.core.ResponseBody;
-import io.durablestreams.server.core.ServerRequest;
-import io.durablestreams.server.core.ServerResponse;
-import io.durablestreams.server.core.SseFrame;
-import io.smallrye.mutiny.Multi;
+import io.durablestreams.server.core.InMemoryStreamStore;
+import io.durablestreams.server.spi.CursorPolicy;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HEAD;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
+
+import java.time.Clock;
+import java.time.Duration;
 
 @Path("/")
-final class DurableStreamsResource {
-    private final DurableStreamsHandler handler;
-
-    DurableStreamsResource(DurableStreamsHandler handler) {
-        this.handler = handler;
-    }
-
+public class DurableStreamsResource {
+    private final DurableStreamsHandler handler = DurableStreamsHandler.builder(new InMemoryStreamStore())
+            .cursorPolicy(new CursorPolicy(Clock.systemUTC()))
+            .cachePolicy(CachePolicy.defaultPrivate())
+            .longPollTimeout(Duration.ofSeconds(25))
+            .sseMaxDuration(Duration.ofSeconds(60))
+            .build();
+  
     @GET
     @Path("{path:.*}")
-    public Response get(jakarta.ws.rs.core.UriInfo uriInfo, byte[] body) {
-        return handle("GET", uriInfo, body);
+    public Response get(@Context UriInfo uriInfo, @Context HttpHeaders headers) {
+      return DurableStreamsQuarkusAdapter.handle(HttpMethod.GET, uriInfo, headers, null, handler);
     }
-
+  
     @POST
     @Path("{path:.*}")
-    public Response post(jakarta.ws.rs.core.UriInfo uriInfo, byte[] body) {
-        return handle("POST", uriInfo, body);
+    public Response post(@Context UriInfo uriInfo, @Context HttpHeaders headers, byte[] body) {
+      return DurableStreamsQuarkusAdapter.handle(HttpMethod.POST, uriInfo, headers, body, handler);
     }
-
+  
     @PUT
     @Path("{path:.*}")
-    public Response put(jakarta.ws.rs.core.UriInfo uriInfo, byte[] body) {
-        return handle("PUT", uriInfo, body);
+    public Response put(@Context UriInfo uriInfo, @Context HttpHeaders headers, byte[] body) {
+      return DurableStreamsQuarkusAdapter.handle(HttpMethod.PUT, uriInfo, headers, body, handler);
     }
-
+  
     @DELETE
     @Path("{path:.*}")
-    public Response delete(jakarta.ws.rs.core.UriInfo uriInfo, byte[] body) {
-        return handle("DELETE", uriInfo, body);
+    public Response delete(@Context UriInfo uriInfo, @Context HttpHeaders headers) {
+      return DurableStreamsQuarkusAdapter.handle(HttpMethod.DELETE, uriInfo, headers, null, handler);
     }
-
+  
     @HEAD
     @Path("{path:.*}")
-    public Response head(jakarta.ws.rs.core.UriInfo uriInfo, byte[] body) {
-        return handle("HEAD", uriInfo, body);
-    }
-
-    @GET
-    @Path("{path:.*}")
-    @Produces(MediaType.SERVER_SENT_EVENTS)
-    public Multi<String> sse(jakarta.ws.rs.core.UriInfo uriInfo) {
-        ServerRequest dsReq = new ServerRequest(
-                HttpMethod.GET,
-                uriInfo.getRequestUri(),
-                java.util.Map.of(),
-                null
-        );
-        ServerResponse dsResp = handler.handle(dsReq);
-        if (dsResp.body() instanceof ResponseBody.Sse sse) {
-            return Multi.createFrom().publisher(sse.publisher()).map(SseFrame::render);
-        }
-        return Multi.createFrom().empty();
-    }
-
-    private Response handle(String method, jakarta.ws.rs.core.UriInfo uriInfo, byte[] body) {
-        ServerRequest dsReq = new ServerRequest(
-                HttpMethod.valueOf(method),
-                uriInfo.getRequestUri(),
-                java.util.Map.of(),
-                body == null || body.length == 0 ? null : new java.io.ByteArrayInputStream(body)
-        );
-        ServerResponse dsResp = handler.handle(dsReq);
-        Response.ResponseBuilder builder = Response.status(dsResp.status());
-        dsResp.headers().forEach((k, v) -> v.forEach(value -> builder.header(k, value)));
-        if (dsResp.body() instanceof ResponseBody.Bytes bytes) {
-            return builder.entity(bytes.bytes()).build();
-        }
-        return builder.build();
+    public Response head(@Context UriInfo uriInfo, @Context HttpHeaders headers) {
+      return DurableStreamsQuarkusAdapter.handle(HttpMethod.HEAD, uriInfo, headers, null, handler);
     }
 }
+
 ```
 
 ## 반응형 통합 예제 (Reactive)

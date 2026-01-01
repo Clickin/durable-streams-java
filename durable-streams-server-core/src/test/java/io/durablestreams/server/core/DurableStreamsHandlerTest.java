@@ -208,6 +208,187 @@ class DurableStreamsHandlerTest {
         assertThat(rejected.retryAfter()).isPresent();
     }
 
+    @Test
+    void invalidTtlRejects() {
+        DurableStreamsHandler handler = handlerWithTimeouts();
+        ServerResponse resp = handler.handle(request(
+                HttpMethod.PUT,
+                URI.create("http://localhost/streams/test"),
+                headers("Content-Type", "application/octet-stream", "Stream-TTL", "invalid"),
+                null
+        ));
+        assertThat(resp.status()).isEqualTo(400);
+    }
+
+    @Test
+    void negativeTtlRejects() {
+        DurableStreamsHandler handler = handlerWithTimeouts();
+        ServerResponse resp = handler.handle(request(
+                HttpMethod.PUT,
+                URI.create("http://localhost/streams/test"),
+                headers("Content-Type", "application/octet-stream", "Stream-TTL", "-10"),
+                null
+        ));
+        assertThat(resp.status()).isEqualTo(400);
+    }
+
+    @Test
+    void leadingZeroTtlRejects() {
+        DurableStreamsHandler handler = handlerWithTimeouts();
+        ServerResponse resp = handler.handle(request(
+                HttpMethod.PUT,
+                URI.create("http://localhost/streams/test"),
+                headers("Content-Type", "application/octet-stream", "Stream-TTL", "010"),
+                null
+        ));
+        assertThat(resp.status()).isEqualTo(400);
+    }
+
+    @Test
+    void invalidExpiresAtRejects() {
+        DurableStreamsHandler handler = handlerWithTimeouts();
+        ServerResponse resp = handler.handle(request(
+                HttpMethod.PUT,
+                URI.create("http://localhost/streams/test"),
+                headers("Content-Type", "application/octet-stream", "Stream-Expires-At", "not-a-date"),
+                null
+        ));
+        assertThat(resp.status()).isEqualTo(400);
+    }
+
+    @Test
+    void bothTtlAndExpiresAtRejects() {
+        DurableStreamsHandler handler = handlerWithTimeouts();
+        ServerResponse resp = handler.handle(request(
+                HttpMethod.PUT,
+                URI.create("http://localhost/streams/test"),
+                headers("Content-Type", "application/octet-stream", 
+                        "Stream-TTL", "10",
+                        "Stream-Expires-At", "2024-01-01T00:00:00Z"),
+                null
+        ));
+        assertThat(resp.status()).isEqualTo(400);
+    }
+
+    @Test
+    void missingContentTypeOnAppendRejects() {
+        DurableStreamsHandler handler = handlerWithTimeouts();
+        ServerResponse resp = handler.handle(request(
+                HttpMethod.POST,
+                URI.create("http://localhost/streams/test"),
+                Map.of(),
+                "data".getBytes()
+        ));
+        assertThat(resp.status()).isEqualTo(400);
+    }
+
+    @Test
+    void duplicateOffsetRejects() {
+        DurableStreamsHandler handler = handlerWithTimeouts();
+        ServerResponse resp = handler.handle(request(
+                HttpMethod.GET,
+                URI.create("http://localhost/streams/test?offset=0&offset=1"),
+                Map.of(),
+                null
+        ));
+        assertThat(resp.status()).isEqualTo(400);
+    }
+
+    @Test
+    void invalidOffsetRejects() {
+        DurableStreamsHandler handler = handlerWithTimeouts();
+        ServerResponse resp = handler.handle(request(
+                HttpMethod.GET,
+                URI.create("http://localhost/streams/test?offset=,"),
+                Map.of(),
+                null
+        ));
+        assertThat(resp.status()).isEqualTo(400);
+    }
+
+    @Test
+    void invalidLiveModeRejects() {
+        DurableStreamsHandler handler = handlerWithTimeouts();
+        ServerResponse resp = handler.handle(request(
+                HttpMethod.GET,
+                URI.create("http://localhost/streams/test?offset=0&live=unknown"),
+                Map.of(),
+                null
+        ));
+        assertThat(resp.status()).isEqualTo(400);
+    }
+
+    @Test
+    void missingOffsetForLongPollRejects() {
+        DurableStreamsHandler handler = handlerWithTimeouts();
+        ServerResponse resp = handler.handle(request(
+                HttpMethod.GET,
+                URI.create("http://localhost/streams/test?live=long-poll"),
+                Map.of(),
+                null
+        ));
+        assertThat(resp.status()).isEqualTo(400);
+    }
+
+    @Test
+    void missingOffsetForSseRejects() {
+        DurableStreamsHandler handler = handlerWithTimeouts();
+        ServerResponse resp = handler.handle(request(
+                HttpMethod.GET,
+                URI.create("http://localhost/streams/test?live=sse"),
+                Map.of(),
+                null
+        ));
+        assertThat(resp.status()).isEqualTo(400);
+    }
+    
+    @Test
+    void deleteNonExistentReturns404() {
+        DurableStreamsHandler handler = handlerWithTimeouts();
+        ServerResponse resp = handler.handle(request(
+                HttpMethod.DELETE,
+                URI.create("http://localhost/streams/nonexistent"),
+                Map.of(),
+                null
+        ));
+        assertThat(resp.status()).isEqualTo(404);
+    }
+
+    @Test
+    void headNonExistentReturns404() {
+        DurableStreamsHandler handler = handlerWithTimeouts();
+        ServerResponse resp = handler.handle(request(
+                HttpMethod.HEAD,
+                URI.create("http://localhost/streams/nonexistent"),
+                Map.of(),
+                null
+        ));
+        assertThat(resp.status()).isEqualTo(404);
+    }
+
+    @Test
+    void headReturnsHeaders() {
+        DurableStreamsHandler handler = handlerWithTimeouts();
+        URI stream = URI.create("http://localhost/streams/test");
+        handler.handle(request(
+                HttpMethod.PUT,
+                stream,
+                headers("Content-Type", "application/octet-stream", "Stream-TTL", "60"),
+                "[]".getBytes()
+        ));
+
+        ServerResponse resp = handler.handle(request(
+                HttpMethod.HEAD,
+                stream,
+                Map.of(),
+                null
+        ));
+        
+        assertThat(resp.status()).isEqualTo(200);
+        assertThat(firstHeader(resp, Protocol.H_CONTENT_TYPE)).isEqualTo("application/octet-stream");
+        assertThat(firstHeader(resp, Protocol.H_STREAM_TTL)).isNotNull();
+    }
+
     private DurableStreamsHandler handlerWithTimeouts() {
         return DurableStreamsHandler.builder(new InMemoryStreamStore())
                 .longPollTimeout(Duration.ofMillis(25))

@@ -24,6 +24,7 @@ public final class BodySizeLimiter {
     public static InputStream limit(InputStream delegate, long maxBytes) {
         if (delegate == null) return null;
         if (maxBytes <= 0) return delegate;
+        if (maxBytes == Long.MAX_VALUE) return delegate;
         return new LimitedInputStream(delegate, maxBytes);
     }
 

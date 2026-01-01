@@ -37,6 +37,13 @@ class BodySizeLimiterTest {
         assertThat(bytes).hasSize(5);
     }
 
+    @Test
+    void limitIgnoresLongMaxValue() throws Exception {
+        InputStream limited = BodySizeLimiter.limit(new ByteArrayInputStream("hello".getBytes()), Long.MAX_VALUE);
+        byte[] bytes = readAll(limited);
+        assertThat(bytes).hasSize(5);
+    }
+
     private static byte[] readAll(InputStream in) throws Exception {
         if (in == null) return new byte[0];
         java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();

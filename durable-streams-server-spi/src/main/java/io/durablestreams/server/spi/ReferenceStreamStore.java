@@ -28,11 +28,11 @@ public final class ReferenceStreamStore implements StreamStore {
     private final StreamCodecRegistry codecRegistry;
     private final Clock clock;
     private final Map<URI, StreamState> streams = new ConcurrentHashMap<>();
-
+    @SuppressWarnings("unused")
     public ReferenceStreamStore(OffsetGenerator offsetGenerator) {
         this(offsetGenerator, defaultRegistry(), Clock.systemUTC());
     }
-
+    @SuppressWarnings("unused")
     public ReferenceStreamStore(OffsetGenerator offsetGenerator, StreamCodecRegistry codecRegistry) {
         this(offsetGenerator, codecRegistry, Clock.systemUTC());
     }
@@ -215,16 +215,22 @@ public final class ReferenceStreamStore implements StreamStore {
                 return new CreateOutcome(CreateOutcome.Status.EXISTS_CONFLICT, snapshotMeta(now), nextOffset);
             }
 
-            if (codec.size(state) == 0 && initialBody != null) {
-                codec.applyInitial(state, initialBody);
-                nextOffset = offsetGenerator.next(nextOffset, codec.size(state));
-                dataArrived.signalAll();
-            }
+            lock.lock();
+            try {
+                if (codec.size(state) == 0 && initialBody != null) {
+                    codec.applyInitial(state, initialBody);
+                    nextOffset = offsetGenerator.next(nextOffset, codec.size(state));
+                    dataArrived.signalAll();
+                }
 
-            boolean first = !createdOnce;
-            createdOnce = true;
-            return new CreateOutcome(first ? CreateOutcome.Status.CREATED : CreateOutcome.Status.EXISTS_MATCH, snapshotMeta(now), nextOffset);
+                boolean first = !createdOnce;
+                createdOnce = true;
+                return new CreateOutcome(first ? CreateOutcome.Status.CREATED : CreateOutcome.Status.EXISTS_MATCH, snapshotMeta(now), nextOffset);
+            } finally {
+                lock.unlock();
+            }
         }
+
 
         AppendOutcome append(String streamSeq, InputStream body) throws Exception {
             lock.lock();

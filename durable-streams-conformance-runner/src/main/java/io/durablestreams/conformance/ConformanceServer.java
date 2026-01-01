@@ -3,7 +3,6 @@ package io.durablestreams.conformance;
 import io.durablestreams.server.core.CachePolicy;
 import io.durablestreams.server.core.DurableStreamsHandler;
 import io.durablestreams.server.core.HttpMethod;
-import io.durablestreams.server.core.InMemoryStreamStore;
 import io.durablestreams.server.core.BlockingFileStreamStore;
 import io.durablestreams.server.core.ResponseBody;
 import io.durablestreams.server.core.ServerRequest;
@@ -25,7 +24,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow;
-import java.util.concurrent.TimeUnit;
 
 public final class ConformanceServer {
     private static final int PORT = 4437;
@@ -136,7 +134,7 @@ public final class ConformanceServer {
         });
 
         try {
-            done.await(70, TimeUnit.SECONDS);
+            done.await();
         } catch (InterruptedException ignored) {
             Thread.currentThread().interrupt();
         }
