@@ -5,4 +5,4 @@ spring:
     max-in-memory-size: 50MB
 
 server:
-  port: 4437
+  port: 4433

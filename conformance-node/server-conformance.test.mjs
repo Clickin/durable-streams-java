@@ -9,7 +9,7 @@ const currentDir = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(currentDir, "..");
 const isWindows = process.platform === "win32";
 const gradlew = isWindows ? resolve(rootDir, "gradlew.bat") : resolve(rootDir, "gradlew");
-const baseUrl = process.env.STREAM_URL ?? "http://localhost:4437";
+const baseUrl = process.env.STREAM_URL ?? "http://localhost:4430";
 
 function startServer() {
   if (isWindows) {

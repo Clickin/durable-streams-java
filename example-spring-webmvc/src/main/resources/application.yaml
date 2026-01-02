@@ -3,4 +3,4 @@ spring:
     name: durable-streams
 
 server:
-  port: 4437
+  port: 4434

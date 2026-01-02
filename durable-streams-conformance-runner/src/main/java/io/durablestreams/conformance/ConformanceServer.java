@@ -1,16 +1,9 @@
 package io.durablestreams.conformance;
 
-import io.durablestreams.server.core.*;
-import io.durablestreams.server.core.metadata.InMemoryMetadataStore;
-import io.durablestreams.server.spi.CursorPolicy;
-import io.javalin.Javalin;
-import io.javalin.http.Context;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.LinkedHashMap;
@@ -19,8 +12,20 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow;
 
+import io.durablestreams.server.core.CachePolicy;
+import io.durablestreams.server.core.DurableStreamsHandler;
+import io.durablestreams.server.core.HttpMethod;
+import io.durablestreams.server.core.InMemoryStreamStore;
+import io.durablestreams.server.core.ResponseBody;
+import io.durablestreams.server.core.ServerRequest;
+import io.durablestreams.server.core.ServerResponse;
+import io.durablestreams.server.core.SseFrame;
+import io.durablestreams.server.spi.CursorPolicy;
+import io.javalin.Javalin;
+import io.javalin.http.Context;
+
 public final class ConformanceServer {
-    private static final int PORT = 4437;
+    private static final int PORT = 4430;
 
     public static void main(String[] args) {
 
