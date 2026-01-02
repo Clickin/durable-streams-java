@@ -2,10 +2,10 @@ package io.durablestreams.server.core.metadata;
 
 import io.durablestreams.core.Offset;
 import io.durablestreams.server.spi.StreamConfig;
-import org.lmdbjava.Dbi;
-import org.lmdbjava.DbiFlags;
-import org.lmdbjava.Env;
-import org.lmdbjava.Txn;
+import org.rocksdb.CompressionType;
+import org.rocksdb.Options;
+import org.rocksdb.RocksDB;
+import org.rocksdb.RocksDBException;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -16,62 +16,55 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 
-public final class LmdbMetadataStore implements MetadataStore {
-    private static final int MAX_KEY_SIZE = 511;
-    private static final int MAX_DBS = 1;
-    private static final long DEFAULT_MAP_SIZE = 256L * 1024 * 1024;
+public final class RocksDbMetadataStore implements MetadataStore {
+    private static final long DEFAULT_WRITE_BUFFER_SIZE = 64L * 1024 * 1024;
+    private static final int DEFAULT_MAX_WRITE_BUFFERS = 3;
 
-    private static final ThreadLocal<ByteBuffer> KEY_BUFFER =
-            ThreadLocal.withInitial(() -> ByteBuffer.allocateDirect(MAX_KEY_SIZE));
+    private final RocksDB db;
+    private final Options options;
 
-    private final Env<ByteBuffer> env;
-    private final Dbi<ByteBuffer> streams;
-
-    public LmdbMetadataStore(Path baseDir) {
-        this(baseDir, DEFAULT_MAP_SIZE, 0);
+    public RocksDbMetadataStore(Path baseDir) {
+        this(baseDir, DEFAULT_WRITE_BUFFER_SIZE, DEFAULT_MAX_WRITE_BUFFERS);
     }
 
-    public LmdbMetadataStore(Path baseDir, long mapSize) {
-        this(baseDir, mapSize, 0);
-    }
-
-    public LmdbMetadataStore(Path baseDir, int maxReaders) {
-        this(baseDir, DEFAULT_MAP_SIZE, maxReaders);
-    }
-
-    public LmdbMetadataStore(Path baseDir, long mapSize, int maxReaders) {
+    public RocksDbMetadataStore(Path baseDir, long writeBufferSize, int maxWriteBuffers) {
         Objects.requireNonNull(baseDir, "baseDir");
-        if (mapSize <= 0) {
-            throw new IllegalArgumentException("mapSize must be positive");
+        if (writeBufferSize <= 0) {
+            throw new IllegalArgumentException("writeBufferSize must be positive");
         }
-        if (maxReaders < 0) {
-            throw new IllegalArgumentException("maxReaders must be non-negative");
+        if (maxWriteBuffers <= 0) {
+            throw new IllegalArgumentException("maxWriteBuffers must be positive");
         }
         try {
             Files.createDirectories(baseDir);
         } catch (IOException e) {
-            throw new IllegalStateException("Failed to create LMDB directory", e);
+            throw new IllegalStateException("Failed to create RocksDB directory", e);
         }
-        Env.Builder<ByteBuffer> builder = Env.create()
-                .setMapSize(mapSize)
-                .setMaxDbs(MAX_DBS);
-        if (maxReaders > 0) {
-            builder.setMaxReaders(maxReaders);
+        RocksDB.loadLibrary();
+        this.options = new Options()
+                .setCreateIfMissing(true)
+                .setWriteBufferSize(writeBufferSize)
+                .setMaxWriteBufferNumber(maxWriteBuffers)
+                .setCompressionType(CompressionType.LZ4_COMPRESSION);
+        try {
+            this.db = RocksDB.open(options, baseDir.toString());
+        } catch (RocksDBException e) {
+            options.close();
+            throw new IllegalStateException("Failed to open RocksDB", e);
         }
-        this.env = builder.open(baseDir.toFile());
-        this.streams = env.openDbi("streams", DbiFlags.MDB_CREATE);
     }
 
     @Override
     public Optional<FileStreamMetadata> get(java.net.URI url) {
         Objects.requireNonNull(url, "url");
-        try (Txn<ByteBuffer> txn = env.txnRead()) {
-            ByteBuffer key = encodeKey(url.toString());
-            ByteBuffer value = streams.get(txn, key);
+        try {
+            byte[] value = db.get(encodeKey(url.toString()));
             if (value == null) {
                 return Optional.empty();
             }
-            return Optional.of(decodeValue(value));
+            return Optional.of(decodeValue(ByteBuffer.wrap(value)));
+        } catch (RocksDBException e) {
+            throw new IllegalStateException("Failed to read metadata", e);
         }
     }
 
@@ -79,45 +72,40 @@ public final class LmdbMetadataStore implements MetadataStore {
     public void put(java.net.URI url, FileStreamMetadata meta) {
         Objects.requireNonNull(url, "url");
         Objects.requireNonNull(meta, "meta");
-        try (Txn<ByteBuffer> txn = env.txnWrite()) {
-            ByteBuffer key = encodeKey(url.toString());
-            ByteBuffer value = encodeValue(meta);
-            streams.put(txn, key, value);
-            txn.commit();
+        ByteBuffer buffer = encodeValue(meta);
+        byte[] value = new byte[buffer.remaining()];
+        buffer.get(value);
+        try {
+            db.put(encodeKey(url.toString()), value);
+        } catch (RocksDBException e) {
+            throw new IllegalStateException("Failed to write metadata", e);
         }
-        env.sync(true);
     }
 
     @Override
     public boolean delete(java.net.URI url) {
         Objects.requireNonNull(url, "url");
-        try (Txn<ByteBuffer> txn = env.txnWrite()) {
-            ByteBuffer key = encodeKey(url.toString());
-            boolean removed = streams.delete(txn, key);
-            txn.commit();
-            if (removed) {
-                env.sync(true);
+        byte[] key = encodeKey(url.toString());
+        try {
+            byte[] existing = db.get(key);
+            if (existing == null) {
+                return false;
             }
-            return removed;
+            db.delete(key);
+            return true;
+        } catch (RocksDBException e) {
+            throw new IllegalStateException("Failed to delete metadata", e);
         }
     }
 
     @Override
     public void close() {
-        streams.close();
-        env.close();
+        db.close();
+        options.close();
     }
 
-    private static ByteBuffer encodeKey(String key) {
-        byte[] bytes = key.getBytes(StandardCharsets.UTF_8);
-        if (bytes.length > MAX_KEY_SIZE) {
-            throw new IllegalArgumentException("Stream URL is too long for LMDB key");
-        }
-        ByteBuffer buffer = KEY_BUFFER.get();
-        buffer.clear();
-        buffer.put(bytes);
-        buffer.flip();
-        return buffer;
+    private static byte[] encodeKey(String key) {
+        return key.getBytes(StandardCharsets.UTF_8);
     }
 
     private static ByteBuffer encodeValue(FileStreamMetadata meta) {
@@ -138,7 +126,7 @@ public final class LmdbMetadataStore implements MetadataStore {
                 + (expiresAt == null ? 0 : Long.BYTES)
                 + sizeOfString(lastSeq);
 
-        ByteBuffer buffer = ByteBuffer.allocateDirect(size);
+        ByteBuffer buffer = ByteBuffer.allocate(size);
         byte flags = 0;
         if (ttlSeconds != null) flags |= 0x01;
         if (configExpiresAt != null) flags |= 0x02;

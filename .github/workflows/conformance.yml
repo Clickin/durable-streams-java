@@ -9,11 +9,8 @@ on:
       - master
 
 jobs:
-  conformance:
+  build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,21 +22,53 @@ jobs:
           java-version: "17"
           cache: gradle
 
+      - name: Set gradlew permission
+        run: chmod +x ./gradlew
+
+      - name: Compile Java
+        run: ./gradlew compileJava -x :durable-streams-benchmarks:compileJava --no-daemon
+
+      - name: Cache build artifacts
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            */build/classes
+            */build/libs
+            */build/generated
+            */build/resources
+            .gradle
+          key: build-${{ github.sha }}
+
+  conformance-runner:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Restore build artifacts
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            */build/classes
+            */build/libs
+            */build/generated
+            */build/resources
+            .gradle
+          key: build-${{ github.sha }}
+
       - name: Set up Node.js 24
         uses: actions/setup-node@v4
         with:
           node-version: "24"
           cache: npm
           cache-dependency-path: conformance-node/package-lock.json
-
-      - name: List files
-        run: ls -la
-
-      - name: Set gradlew permission
-        run: chmod +x ./gradlew 
-
-      - name: Compile conformance runner
-        run: ./gradlew compileJava
 
       - name: Install conformance node dependencies
         run: npm ci
@@ -49,12 +78,121 @@ jobs:
         run: npm run test:server
         working-directory: ./conformance-node
 
+      - name: Run client conformance tests
+        run: npm run test:client
+        working-directory: ./conformance-node
+
+  quarkus:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Restore build artifacts
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            */build/classes
+            */build/libs
+            */build/generated
+            */build/resources
+            .gradle
+          key: build-${{ github.sha }}
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: conformance-node/package-lock.json
+
+      - name: Install conformance node dependencies
+        run: npm ci
+        working-directory: ./conformance-node
+
       - name: Run quarkus conformance tests
         run: npm run test:quarkus
         working-directory: ./conformance-node
 
+  micronaut:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Restore build artifacts
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            */build/classes
+            */build/libs
+            */build/generated
+            */build/resources
+            .gradle
+          key: build-${{ github.sha }}
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: conformance-node/package-lock.json
+
+      - name: Install conformance node dependencies
+        run: npm ci
+        working-directory: ./conformance-node
+
       - name: Run micronaut conformance tests
         run: npm run test:micronaut
+        working-directory: ./conformance-node
+
+  spring:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Restore build artifacts
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            */build/classes
+            */build/libs
+            */build/generated
+            */build/resources
+            .gradle
+          key: build-${{ github.sha }}
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: conformance-node/package-lock.json
+
+      - name: Install conformance node dependencies
+        run: npm ci
         working-directory: ./conformance-node
 
       - name: Run spring-webflux conformance tests
@@ -63,8 +201,4 @@ jobs:
 
       - name: Run spring-webmvc conformance tests
         run: npm run test:springwebmvc
-        working-directory: ./conformance-node
-
-      - name: Run client conformance tests
-        run: npm run test:client 
         working-directory: ./conformance-node

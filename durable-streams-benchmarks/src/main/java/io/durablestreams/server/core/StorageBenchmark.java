@@ -1,7 +1,6 @@
 package io.durablestreams.server.core;
 
 import io.durablestreams.core.Offset;
-import io.durablestreams.server.core.metadata.LmdbMetadataStore;
 import io.durablestreams.server.spi.*;
 
 import java.io.ByteArrayInputStream;

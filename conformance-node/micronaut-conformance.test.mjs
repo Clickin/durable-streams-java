@@ -9,16 +9,16 @@ const currentDir = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(currentDir, "..");
 const isWindows = process.platform === "win32";
 const gradlew = isWindows ? resolve(rootDir, "gradlew.bat") : resolve(rootDir, "gradlew");
-const baseUrl = process.env.STREAM_URL ?? "http://localhost:4437";
+const baseUrl = process.env.STREAM_URL ?? "http://127.0.0.1:4437";
 
 function startServer() {
   if (isWindows) {
-    return spawn("cmd.exe", ["/c", gradlew, ":example-micronaut:run"], {
+    return spawn("cmd.exe", ["/c", gradlew, ":example-micronaut:run", "--no-daemon"], {
       stdio: "inherit",
       cwd: rootDir,
     });
   }
-  return spawn(gradlew, [":example-micronaut:run"], {
+  return spawn(gradlew, [":example-micronaut:run", "--no-daemon"], {
     stdio: "inherit",
     cwd: rootDir,
   });

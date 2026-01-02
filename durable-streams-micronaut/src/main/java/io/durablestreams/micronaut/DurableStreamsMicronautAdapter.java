@@ -11,12 +11,13 @@ import io.micronaut.http.HttpResponse;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.MediaType;
 import io.micronaut.http.MutableHttpResponse;
-import io.micronaut.http.sse.Event;
 import jakarta.annotation.Nonnull;
 import org.reactivestreams.Publisher;
 
 import java.io.ByteArrayInputStream;
 import java.net.URI;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,7 +27,7 @@ public final class DurableStreamsMicronautAdapter {
     private DurableStreamsMicronautAdapter() {
     }
 
-    public static HttpResponse<?> handle(HttpRequest<byte[]> request, DurableStreamsHandler handler) {
+    public static HttpResponse<?> handle(HttpRequest<?> request, DurableStreamsHandler handler) {
         ServerResponse response = handler.handle(toEngineRequest(request));
         MutableHttpResponse<?> out = HttpResponse.status(HttpStatus.valueOf(response.status()));
         response.headers().forEach((k, v) -> v.forEach(value -> out.header(k, value)));
@@ -42,8 +43,8 @@ public final class DurableStreamsMicronautAdapter {
             return out.body(openRegionStream(region.region()));
         }
         if (body instanceof ResponseBody.Sse sse) {
-            Publisher<Event<String>> events = toEventPublisher(sse.publisher());
-            return out.contentType(MediaType.TEXT_EVENT_STREAM_TYPE).body(events);
+            Publisher<String> stream = toTextPublisher(sse.publisher());
+            return out.contentType(MediaType.TEXT_EVENT_STREAM_TYPE).body(stream);
         }
         return out;
     }
@@ -56,43 +57,77 @@ public final class DurableStreamsMicronautAdapter {
 
         String host = request.getHeaders().get("Host");
         if (host == null || host.isBlank()) {
+            host = request.getHeaders().get("host");
+        }
+        if (host == null || host.isBlank()) {
             host = request.getServerName();
         }
         if (host == null || host.isBlank()) {
-            return uri;
+            host = "localhost";
         }
 
         String scheme = request.isSecure() ? "https" : "http";
         String rawPath = uri.getRawPath();
+        if (rawPath == null) {
+            rawPath = uri.getPath();
+        }
+        if (rawPath == null || rawPath.isEmpty()) {
+            rawPath = "/";
+        }
         String rawQuery = uri.getRawQuery();
 
         StringBuilder sb = new StringBuilder();
         sb.append(scheme).append("://").append(host);
-        if (rawPath != null && !rawPath.isEmpty()) {
-            if (rawPath.charAt(0) != '/') {
-                sb.append('/');
-            }
-            sb.append(rawPath);
+        if (rawPath.charAt(0) != '/') {
+            sb.append('/');
         }
+        sb.append(rawPath);
         if (rawQuery != null && !rawQuery.isEmpty()) {
             sb.append('?').append(rawQuery);
         }
         return URI.create(sb.toString());
     }
 
-    private static ServerRequest toEngineRequest(HttpRequest<byte[]> request) {
-        HttpMethod method = HttpMethod.valueOf(request.getMethodName());
+    private static ServerRequest toEngineRequest(HttpRequest<?> request) {
+        io.micronaut.http.HttpMethod requestMethod = request.getMethod();
+        HttpMethod method = switch (requestMethod) {
+            case GET -> HttpMethod.GET;
+            case HEAD -> HttpMethod.HEAD;
+            case PUT -> HttpMethod.PUT;
+            case POST -> HttpMethod.POST;
+            case DELETE -> HttpMethod.DELETE;
+            default -> throw new IllegalArgumentException("unsupported method: " + requestMethod);
+        };
         URI uri = toAbsoluteUri(request);
 
         Map<String, List<String>> headers = new LinkedHashMap<>();
         request.getHeaders().names().forEach(name -> headers.put(name, request.getHeaders().getAll(name)));
 
-        byte[] bytes = request.getBody().orElse(null);
+        byte[] bytes = toBytes(request.getBody().orElse(null));
         ByteArrayInputStream body = (bytes == null || bytes.length == 0) ? null : new ByteArrayInputStream(bytes);
         return new ServerRequest(method, uri, headers, body);
     }
 
-    private static Publisher<Event<String>> toEventPublisher(Flow.Publisher<SseFrame> publisher) {
+    private static byte[] toBytes(Object body) {
+        if (body == null) {
+            return null;
+        }
+        if (body instanceof byte[] bytes) {
+            return bytes;
+        }
+        if (body instanceof CharSequence text) {
+            return text.toString().getBytes(StandardCharsets.UTF_8);
+        }
+        if (body instanceof ByteBuffer buffer) {
+            ByteBuffer copy = buffer.slice();
+            byte[] bytes = new byte[copy.remaining()];
+            copy.get(bytes);
+            return bytes;
+        }
+        return null;
+    }
+
+    private static Publisher<String> toTextPublisher(Flow.Publisher<SseFrame> publisher) {
         return subscriber -> publisher.subscribe(new Flow.Subscriber<>() {
             @Override
             public void onSubscribe(Flow.Subscription subscription) {
@@ -111,7 +146,7 @@ public final class DurableStreamsMicronautAdapter {
 
             @Override
             public void onNext(SseFrame item) {
-                subscriber.onNext(Event.of(item.data()).name(item.event()));
+                subscriber.onNext(item.render());
             }
 
             @Override

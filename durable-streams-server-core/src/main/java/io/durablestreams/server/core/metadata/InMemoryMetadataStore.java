@@ -12,12 +12,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>This implementation does not persist metadata to disk, making it suitable for:
  * <ul>
  *   <li>Testing and development</li>
- *   <li>Environments where JVM args for LMDB reflection are not available</li>
+ *   <li>Environments where embedded native dependencies are not desired</li>
  *   <li>Short-lived streams that don't require persistence across restarts</li>
  * </ul>
  *
- * <p>For persistent metadata storage, use {@link LmdbMetadataStore} with appropriate
- * JVM arguments to enable reflection access.
+ * <p>For persistent metadata storage, use {@link RocksDbMetadataStore}.
  */
 public final class InMemoryMetadataStore implements MetadataStore {
 

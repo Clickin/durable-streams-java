@@ -1,4 +1,4 @@
-package io.durablestreams.spring.webmvc;
+package io.durablestreams.servlet;
 
 import io.durablestreams.server.core.DurableStreamsHandler;
 import io.durablestreams.server.core.HttpMethod;
@@ -23,10 +23,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Flow;
 
-public final class DurableStreamsWebMvcServlet extends HttpServlet {
+public final class DurableStreamsServlet extends HttpServlet {
     private final DurableStreamsHandler handler;
 
-    public DurableStreamsWebMvcServlet(DurableStreamsHandler handler) {
+    public DurableStreamsServlet(DurableStreamsHandler handler) {
         this.handler = handler;
     }
 

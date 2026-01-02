@@ -13,19 +13,19 @@ const baseUrl = process.env.STREAM_URL ?? "http://localhost:4437";
 
 function startServer() {
   if (isWindows) {
-    return spawn("cmd.exe", ["/c", gradlew, ":durable-streams-conformance-runner:runConformanceServer"], {
+    return spawn("cmd.exe", ["/c", gradlew, ":durable-streams-conformance-runner:runConformanceServer", "--no-daemon"], {
       stdio: "inherit",
       cwd: rootDir,
     });
   }
-  return spawn(gradlew, [":durable-streams-conformance-runner:runConformanceServer"], {
+  return spawn(gradlew, [":durable-streams-conformance-runner:runConformanceServer", "--no-daemon"], {
     stdio: "inherit",
     cwd: rootDir,
   });
 }
 
 async function waitForServer(url) {
-  for (let i = 0; i < 20; i += 1) {
+  for (let i = 0; i < 200; i += 1) {
     try {
       await fetch(url, { method: "HEAD" });
       return;

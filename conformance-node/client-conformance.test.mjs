@@ -18,9 +18,9 @@ const serverPort = portEnv ? Number(portEnv) : 4438;
 
 function gradleAdapterCommand() {
   if (isWindows) {
-    return { clientAdapter: "cmd.exe", clientArgs: ["/c", gradlew, ":durable-streams-conformance-runner:runClientAdapter"] };
+    return { clientAdapter: "cmd.exe", clientArgs: ["/c", gradlew, ":durable-streams-conformance-runner:runClientAdapter", "--no-daemon"] };
   }
-  return { clientAdapter: gradlew, clientArgs: [":durable-streams-conformance-runner:runClientAdapter"] };
+  return { clientAdapter: gradlew, clientArgs: [":durable-streams-conformance-runner:runClientAdapter", "--no-daemon"] };
 }
 
 function jarAdapterCommand() {
@@ -34,8 +34,8 @@ function jarAdapterCommand() {
 function buildClientAdapterJar() {
   const command = gradleAdapterCommand();
   const buildArgs = isWindows
-    ? ["/c", gradlew, ":durable-streams-conformance-runner:clientAdapterJar"]
-    : [":durable-streams-conformance-runner:clientAdapterJar"];
+    ? ["/c", gradlew, ":durable-streams-conformance-runner:clientAdapterJar", "--no-daemon"]
+    : [":durable-streams-conformance-runner:clientAdapterJar", "--no-daemon"];
   const buildCommand = isWindows ? "cmd.exe" : gradlew;
   const result = spawnSync(buildCommand, buildArgs, { stdio: "inherit" });
   if (result.status !== 0) {

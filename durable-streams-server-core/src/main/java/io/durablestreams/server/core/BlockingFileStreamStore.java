@@ -1,13 +1,11 @@
 package io.durablestreams.server.core;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
 import io.durablestreams.core.Offset;
+import io.durablestreams.json.spi.JsonCodec;
+import io.durablestreams.json.spi.JsonException;
 import io.durablestreams.server.core.metadata.FileStreamMetadata;
-import io.durablestreams.server.core.metadata.LmdbMetadataStore;
 import io.durablestreams.server.core.metadata.MetadataStore;
+import io.durablestreams.server.core.metadata.RocksDbMetadataStore;
 import io.durablestreams.server.spi.*;
 
 import java.io.*;
@@ -27,13 +25,14 @@ import java.util.concurrent.locks.ReentrantLock;
 public final class BlockingFileStreamStore implements StreamStore, AutoCloseable {
 
     private static final String DATA_FILE = "data.bin";
-    private static final JsonFactory JSON_FACTORY = new JsonFactory();
     private static final byte[] EMPTY_JSON_ARRAY = "[]".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    private static final byte[] NEWLINE = new byte[] { '\n' };
 
     private final Path baseDir;
     private final Clock clock;
     private final MetadataStore metadataStore;
     private final StreamCodecRegistry codecs;
+    private final Optional<JsonCodec> jsonCodec;
 
     private final ConcurrentHashMap<URI, ReentrantLock> writeLocks = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<URI, ConcurrentLinkedQueue<CompletableFuture<Boolean>>> awaiters = new ConcurrentHashMap<>();
@@ -53,8 +52,9 @@ public final class BlockingFileStreamStore implements StreamStore, AutoCloseable
     public BlockingFileStreamStore(Path baseDir, Clock clock, MetadataStore metadataStore, StreamCodecRegistry codecs) {
         this.baseDir = Objects.requireNonNull(baseDir, "baseDir");
         this.clock = Objects.requireNonNull(clock, "clock");
-        this.metadataStore = metadataStore != null ? metadataStore : new LmdbMetadataStore(baseDir.resolve("metadata"));
+        this.metadataStore = metadataStore != null ? metadataStore : new RocksDbMetadataStore(baseDir.resolve("metadata"));
         this.codecs = Objects.requireNonNull(codecs, "codecs");
+        this.jsonCodec = loadJsonCodec();
 
         try {
             Files.createDirectories(baseDir);
@@ -291,32 +291,33 @@ public final class BlockingFileStreamStore implements StreamStore, AutoCloseable
     }
 
     private long appendJson(FileChannel channel, InputStream body) throws IOException {
-        try (JsonParser parser = JSON_FACTORY.createParser(body)) {
-            long totalWritten = 0;
+        byte[] raw = body.readAllBytes();
+        if (raw.length == 0) return 0;
 
-            if (parser.nextToken() == null) return 0;
-
-            if (parser.currentToken() == JsonToken.START_ARRAY) {
-                while (parser.nextToken() != JsonToken.END_ARRAY && parser.currentToken() != null) {
-                    totalWritten += writeJsonToken(channel, parser);
+        JsonCodec codec = requireJsonCodec();
+        try {
+            if (codec.isJsonArray(raw)) {
+                List<Object> values = codec.readList(raw, Object.class);
+                if (values.isEmpty()) return 0;
+                long total = 0;
+                for (Object value : values) {
+                    total += writeJsonValue(channel, codec, value);
                 }
-            } else {
-                totalWritten += writeJsonToken(channel, parser);
+                return total;
             }
-            return totalWritten;
-        } catch (com.fasterxml.jackson.core.JsonParseException e) {
+
+            Object value = codec.readValue(raw, Object.class);
+            return writeJsonValue(channel, codec, value);
+        } catch (JsonException e) {
             throw new IllegalArgumentException("invalid json", e);
         }
     }
 
-    private long writeJsonToken(FileChannel channel, JsonParser parser) throws IOException {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        try (JsonGenerator gen = JSON_FACTORY.createGenerator(baos)) {
-            gen.copyCurrentStructure(parser);
-        }
-        baos.write('\n');
-        byte[] bytes = baos.toByteArray();
-        return channel.write(ByteBuffer.wrap(bytes));
+    private long writeJsonValue(FileChannel channel, JsonCodec codec, Object value) throws IOException, JsonException {
+        byte[] bytes = codec.writeBytes(value);
+        long written = channel.write(ByteBuffer.wrap(bytes));
+        written += channel.write(ByteBuffer.wrap(NEWLINE));
+        return written;
     }
 
     private long writeBinary(FileChannel channel, InputStream in) throws IOException {
@@ -366,6 +367,20 @@ public final class BlockingFileStreamStore implements StreamStore, AutoCloseable
                 f.complete(true);
             }
         }
+    }
+
+    private JsonCodec requireJsonCodec() {
+        return jsonCodec.orElseThrow(() ->
+                new IllegalArgumentException("application/json requires an installed JSON codec module"));
+    }
+
+    private static Optional<JsonCodec> loadJsonCodec() {
+        ServiceLoader<JsonCodec> loader = ServiceLoader.load(JsonCodec.class, Thread.currentThread().getContextClassLoader());
+        Iterator<JsonCodec> iterator = loader.iterator();
+        if (iterator.hasNext()) {
+            return Optional.ofNullable(iterator.next());
+        }
+        return Optional.empty();
     }
 
     @Override

@@ -34,17 +34,17 @@ final class DurableStreamsController {
         .sseMaxDuration(Duration.ofSeconds(60))
         .build();
 
-    @Get("/{+path}")
+    @Get("/{path:.*}")
     HttpResponse<?> get(@PathVariable("path") String path, HttpRequest<byte[]> request) {
         return handle(request);
     }
 
-    @Post("/{+path}")
+    @Post("/{path:.*}")
     HttpResponse<?> post(@PathVariable("path") String path, HttpRequest<byte[]> request) {
         return handle(request);
     }
 
-    @Put("/{+path}")
+    @Put("/{path:.*}")
     HttpResponse<?> put(@PathVariable("path") String path, HttpRequest<byte[]> request) {
         return handle(request);
     }

@@ -10,7 +10,6 @@ import io.smallrye.mutiny.Multi;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.StreamingOutput;
-import jakarta.ws.rs.core.UriInfo;
 import jakarta.ws.rs.sse.OutboundSseEvent;
 import jakarta.ws.rs.sse.Sse;
 
@@ -27,13 +26,13 @@ public final class DurableStreamsQuarkusAdapter {
     private DurableStreamsQuarkusAdapter() {
     }
 
-    public static Response handle(HttpMethod method, UriInfo uriInfo, HttpHeaders headers, byte[] body, DurableStreamsHandler handler) {
-        ServerResponse response = handler.handle(toEngineRequest(method, uriInfo, headers, body));
+    public static Response handle(HttpMethod method, URI uri, HttpHeaders headers, byte[] body, DurableStreamsHandler handler) {
+        ServerResponse response = handler.handle(toEngineRequest(method, uri, headers, body));
         return toJaxRsResponse(response);
     }
 
-    public static Multi<OutboundSseEvent> sse(UriInfo uriInfo, HttpHeaders headers, DurableStreamsHandler handler, Sse sse) {
-        ServerResponse response = handler.handle(toEngineRequest(HttpMethod.GET, uriInfo, headers, null));
+    public static Multi<OutboundSseEvent> sse(URI uri, HttpHeaders headers, DurableStreamsHandler handler, Sse sse) {
+        ServerResponse response = handler.handle(toEngineRequest(HttpMethod.GET, uri, headers, null));
         if (response.body() instanceof ResponseBody.Sse sseBody) {
             return Multi.createFrom().publisher(sseBody.publisher())
                     .map(frame -> sse.newEventBuilder()
@@ -44,8 +43,7 @@ public final class DurableStreamsQuarkusAdapter {
         return Multi.createFrom().empty();
     }
 
-    private static ServerRequest toEngineRequest(HttpMethod method, UriInfo uriInfo, HttpHeaders headers, byte[] body) {
-        URI uri = uriInfo.getRequestUri();
+    private static ServerRequest toEngineRequest(HttpMethod method, URI uri, HttpHeaders headers, byte[] body) {
         Map<String, List<String>> hdrs = new LinkedHashMap<>(headers.getRequestHeaders());
         ByteArrayInputStream in = (body == null || body.length == 0) ? null : new ByteArrayInputStream(body);
         return new ServerRequest(method, uri, hdrs, in);

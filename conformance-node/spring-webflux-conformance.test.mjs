@@ -13,12 +13,12 @@ const baseUrl = process.env.STREAM_URL ?? "http://localhost:4437";
 
 function startServer() {
   if (isWindows) {
-    return spawn("cmd.exe", ["/c", gradlew, ":example-spring-webflux:bootRun"], {
+    return spawn("cmd.exe", ["/c", gradlew, ":example-spring-webflux:bootRun", "--no-daemon"], {
       stdio: "inherit",
       cwd: rootDir,
     });
   }
-  return spawn(gradlew, [":example-spring-webflux:bootRun"], {
+  return spawn(gradlew, [":example-spring-webflux:bootRun", "--no-daemon"], {
     stdio: "inherit",
     cwd: rootDir,
   });

@@ -1,13 +1,7 @@
 package io.durablestreams.conformance;
 
-import io.durablestreams.server.core.CachePolicy;
-import io.durablestreams.server.core.DurableStreamsHandler;
-import io.durablestreams.server.core.HttpMethod;
-import io.durablestreams.server.core.BlockingFileStreamStore;
-import io.durablestreams.server.core.ResponseBody;
-import io.durablestreams.server.core.ServerRequest;
-import io.durablestreams.server.core.ServerResponse;
-import io.durablestreams.server.core.SseFrame;
+import io.durablestreams.server.core.*;
+import io.durablestreams.server.core.metadata.InMemoryMetadataStore;
 import io.durablestreams.server.spi.CursorPolicy;
 import io.javalin.Javalin;
 import io.javalin.http.Context;
@@ -30,7 +24,7 @@ public final class ConformanceServer {
 
     public static void main(String[] args) {
 
-        DurableStreamsHandler handler = DurableStreamsHandler.builder(new BlockingFileStreamStore(Path.of("", "data")))
+        DurableStreamsHandler handler = DurableStreamsHandler.builder(new InMemoryStreamStore())
                 .cursorPolicy(new CursorPolicy(Clock.systemUTC()))
                 .cachePolicy(CachePolicy.defaultPrivate())
                 .longPollTimeout(Duration.ofSeconds(25))

@@ -6,11 +6,11 @@ plugins {
 
 group = "com.example"
 version = "0.0.1-SNAPSHOT"
-description = "Durable streamsDemo project for Spring Boot "
+description = "Durable streams Demo project for Spring Boot "
 
 java {
 	toolchain {
-		languageVersion = JavaLanguageVersion.of(25)
+		languageVersion = JavaLanguageVersion.of(17)
 	}
 }
 

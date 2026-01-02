@@ -9,8 +9,8 @@ java {
 dependencies {
     api(project(":durable-streams-core"))
     api(project(":durable-streams-server-spi"))
-    implementation(libs.lmdbjava)
-    implementation("com.fasterxml.jackson.core:jackson-core:2.18.2")
+    implementation(project(":durable-streams-json-spi"))
+    implementation(libs.rocksdb)
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.assertj.core)
     testRuntimeOnly(libs.junit.platform.launcher)
@@ -23,14 +23,6 @@ tasks.named<JavaCompile>("compileJava").configure {
 
 tasks.named<JavaCompile>("compileTestJava").configure {
     options.release.set(17)
-}
-
-tasks.withType<Test>().configureEach {
-    jvmArgs(
-        "--add-opens=java.base/java.nio=ALL-UNNAMED",
-        "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
-        "--add-exports=java.base/sun.nio.ch=ALL-UNNAMED"
-    )
 }
 
 sourceSets {
