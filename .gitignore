@@ -18,6 +18,7 @@ nul
 
 # Temp files
 .tmp/
+_tmp/
 
 # AI/Documentation files (not for public repo)
 AGENTS.md
