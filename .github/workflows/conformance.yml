@@ -47,6 +47,10 @@ jobs:
         run: npm run test:server
         working-directory: ./conformance-node
 
+      - name: Run filestore server conformance tests
+        run: npm run test:fileserver
+        working-directory: ./conformance-node
+
       - name: Run quarkus conformance tests
         run: npm run test:quarkus
         working-directory: ./conformance-node
