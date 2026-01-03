@@ -9,8 +9,10 @@
     "test:micronaut": "vitest run micronaut-conformance.test.mjs",
     "test:quarkus": "vitest run quarkus-conformance.test.mjs",
     "test:springwebflux": "vitest run spring-webflux-conformance.test.mjs",
-    "test:springwebmvc": "vitest run spring-webmvc-conformance.test.mjs"
+    "test:springwebmvc": "vitest run spring-webmvc-conformance.test.mjs",
+    "test:ktor": "vitest run ktor-conformance.test.mjs"
   },
+
   "keywords": [],
   "author": "",
   "license": "ISC",

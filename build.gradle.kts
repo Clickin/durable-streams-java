@@ -50,7 +50,6 @@ tasks.register<JacocoReport>("jacocoRootReport") {
     group = "Reporting"
 
     val excludeProjects = setOf(
-        "durable-streams-benchmarks",
         "durable-streams-conformance-runner",
         "example-micronaut",
         "example-quarkus",

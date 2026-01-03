@@ -22,7 +22,18 @@ Passes the durable-streams conformance suite.
 - `durable-streams-spring-webflux` - Spring WebFlux integration helpers
 - `durable-streams-micronaut` - Micronaut integration helpers
 - `durable-streams-quarkus` - Quarkus integration helpers
+- `durable-streams-ktor` - Ktor integration helpers
 - `durable-streams-conformance-runner` - conformance server/client runner
+
+## Example applications
+
+These modules expose the full protocol via framework-specific adapters and are used in conformance tests:
+
+- `example-micronaut` (port 4431)
+- `example-quarkus` (port 4432)
+- `example-spring-webflux` (port 4433)
+- `example-spring-webmvc` (port 4434)
+- `example-ktor` (port 4435)
 
 ## Key Features & Architecture
 
@@ -365,6 +376,45 @@ public class DurableStreamsResource {
     }
 }
 
+```
+
+### Ktor (Netty)
+
+```kotlin
+import io.durablestreams.ktor.DurableStreamsKtorAdapter
+import io.durablestreams.server.core.CachePolicy
+import io.durablestreams.server.core.DurableStreamsHandler
+import io.durablestreams.server.core.InMemoryStreamStore
+import io.durablestreams.server.spi.CursorPolicy
+import io.ktor.server.application.Application
+import io.ktor.server.engine.embeddedServer
+import io.ktor.server.netty.Netty
+import io.ktor.server.routing.handle
+import io.ktor.server.routing.route
+import io.ktor.server.routing.routing
+import java.time.Clock
+import java.time.Duration
+
+fun main() {
+    embeddedServer(Netty, port = 4435, module = Application::module).start(wait = true)
+}
+
+fun Application.module() {
+    val handler = DurableStreamsHandler.builder(InMemoryStreamStore())
+        .cursorPolicy(CursorPolicy(Clock.systemUTC()))
+        .cachePolicy(CachePolicy.defaultPrivate())
+        .longPollTimeout(Duration.ofSeconds(25))
+        .sseMaxDuration(Duration.ofSeconds(60))
+        .build()
+
+    routing {
+        route("{path...}") {
+            handle {
+                DurableStreamsKtorAdapter.handle(call, handler)
+            }
+        }
+    }
+}
 ```
 
 ## Reactive integration examples

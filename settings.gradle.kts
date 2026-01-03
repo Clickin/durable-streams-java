@@ -11,12 +11,13 @@ include(
   "durable-streams-spring-webflux",
   "durable-streams-micronaut",
   "durable-streams-quarkus",
+  "durable-streams-ktor",
   "durable-streams-conformance-runner",
-  "durable-streams-benchmarks",
   "example-quarkus",
   "example-micronaut",
   "example-spring-webflux",
-  "example-spring-webmvc"
+  "example-spring-webmvc",
+  "example-ktor"
 )
 
 

@@ -23,7 +23,18 @@ durable-streams 의 적합성 테스트 통과
 - `durable-streams-spring-webflux` - Spring WebFlux 통합 헬퍼
 - `durable-streams-micronaut` - Micronaut 통합 헬퍼
 - `durable-streams-quarkus` - Quarkus 통합 헬퍼
+- `durable-streams-ktor` - Ktor 통합 헬퍼
 - `durable-streams-conformance-runner` - 적합성 테스트용 서버/클라이언트 러너
+
+## 예제 애플리케이션
+
+다음 모듈은 프레임워크별 어댑터로 전체 프로토콜을 노출하며, 적합성 테스트에 사용됩니다:
+
+- `example-micronaut` (포트 4431)
+- `example-quarkus` (포트 4432)
+- `example-spring-webflux` (포트 4433)
+- `example-spring-webmvc` (포트 4434)
+- `example-ktor` (포트 4435)
 
 ## 주요 기능 및 아키텍처
 
@@ -366,6 +377,45 @@ public class DurableStreamsResource {
     }
 }
 
+```
+
+### Ktor (Netty)
+
+```kotlin
+import io.durablestreams.ktor.DurableStreamsKtorAdapter
+import io.durablestreams.server.core.CachePolicy
+import io.durablestreams.server.core.DurableStreamsHandler
+import io.durablestreams.server.core.InMemoryStreamStore
+import io.durablestreams.server.spi.CursorPolicy
+import io.ktor.server.application.Application
+import io.ktor.server.engine.embeddedServer
+import io.ktor.server.netty.Netty
+import io.ktor.server.routing.handle
+import io.ktor.server.routing.route
+import io.ktor.server.routing.routing
+import java.time.Clock
+import java.time.Duration
+
+fun main() {
+    embeddedServer(Netty, port = 4435, module = Application::module).start(wait = true)
+}
+
+fun Application.module() {
+    val handler = DurableStreamsHandler.builder(InMemoryStreamStore())
+        .cursorPolicy(CursorPolicy(Clock.systemUTC()))
+        .cachePolicy(CachePolicy.defaultPrivate())
+        .longPollTimeout(Duration.ofSeconds(25))
+        .sseMaxDuration(Duration.ofSeconds(60))
+        .build()
+
+    routing {
+        route("{path...}") {
+            handle {
+                DurableStreamsKtorAdapter.handle(call, handler)
+            }
+        }
+    }
+}
 ```
 
 ## 반응형 통합 예제 (Reactive)

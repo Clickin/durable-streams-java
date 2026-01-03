@@ -36,7 +36,8 @@ jobs:
         run: chmod +x ./gradlew 
 
       - name: Compile conformance runner
-        run: ./gradlew compileJava -x :durable-streams-benchmarks:compileJava
+        run: ./gradlew compileJava
+
 
       - name: Install conformance node dependencies
         run: npm ci
@@ -62,6 +63,11 @@ jobs:
         run: npm run test:springwebmvc
         working-directory: ./conformance-node
 
+      - name: Run ktor conformance tests
+        run: npm run test:ktor
+        working-directory: ./conformance-node
+ 
       - name: Run client conformance tests
         run: npm run test:client 
         working-directory: ./conformance-node
+
