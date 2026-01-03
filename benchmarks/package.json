@@ -1,0 +1,20 @@
+{
+  "name": "durable-streams-java-benchmarks",
+  "version": "1.0.0",
+  "description": "Performance benchmarks for durable-streams-java using upstream benchmark suite",
+  "type": "module",
+  "scripts": {
+    "bench:inmemory": "BASE_URL=http://127.0.0.1:4432 ENVIRONMENT=quarkus-inmemory vitest run bench.inmemory.test.ts",
+    "bench:filestore": "BASE_URL=http://127.0.0.1:4432 ENVIRONMENT=quarkus-filestore vitest run bench.filestore.test.ts",
+    "bench:all": "npm run bench:inmemory && npm run bench:filestore"
+  },
+  "dependencies": {
+    "@durable-streams/benchmarks": "^0.1.3",
+    "@durable-streams/client": "^0.1.3",
+    "vitest": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "typescript": "^5.0.0"
+  }
+}

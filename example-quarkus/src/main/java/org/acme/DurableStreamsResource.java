@@ -1,11 +1,13 @@
 package org.acme;
 
 import io.durablestreams.quarkus.DurableStreamsQuarkusAdapter;
+import io.durablestreams.server.core.BlockingFileStreamStore;
 import io.durablestreams.server.core.CachePolicy;
 import io.durablestreams.server.core.DurableStreamsHandler;
 import io.durablestreams.server.core.HttpMethod;
 import io.durablestreams.server.core.InMemoryStreamStore;
 import io.durablestreams.server.spi.CursorPolicy;
+import io.durablestreams.server.spi.StreamStore;
 import jakarta.inject.Singleton;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -17,7 +19,9 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+import java.nio.file.Paths;
 import java.time.Clock;
 import java.time.Duration;
 
@@ -26,8 +30,16 @@ import java.time.Duration;
 public class DurableStreamsResource {
     private final DurableStreamsHandler handler;
 
-    public DurableStreamsResource() {
-        this.handler = DurableStreamsHandler.builder(new InMemoryStreamStore())
+    public DurableStreamsResource(
+            @ConfigProperty(name = "durable.streams.storage.type", defaultValue = "inmemory") String storageType,
+            @ConfigProperty(name = "durable.streams.storage.path", defaultValue = "./data/streams") String storagePath
+    ) {
+        StreamStore store = switch (storageType.toLowerCase()) {
+            case "file" -> new BlockingFileStreamStore(Paths.get(storagePath));
+            default -> new InMemoryStreamStore();
+        };
+
+        this.handler = DurableStreamsHandler.builder(store)
             .cursorPolicy(new CursorPolicy(Clock.systemUTC()))
             .cachePolicy(CachePolicy.defaultPrivate())
             .longPollTimeout(Duration.ofSeconds(25))
