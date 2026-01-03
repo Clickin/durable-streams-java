@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
 public final class BlockingFileStreamStore implements StreamStore, AutoCloseable {
@@ -36,6 +37,7 @@ public final class BlockingFileStreamStore implements StreamStore, AutoCloseable
 
     private final ConcurrentHashMap<URI, ReentrantLock> writeLocks = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<URI, ConcurrentLinkedQueue<CompletableFuture<Boolean>>> awaiters = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Path, SharedMetadataStore> SHARED_METADATA = new ConcurrentHashMap<>();
 
     public BlockingFileStreamStore(Path baseDir) {
         this(baseDir, Clock.systemUTC(), null, ServiceLoaderCodecRegistry.defaultRegistry());
@@ -52,7 +54,7 @@ public final class BlockingFileStreamStore implements StreamStore, AutoCloseable
     public BlockingFileStreamStore(Path baseDir, Clock clock, MetadataStore metadataStore, StreamCodecRegistry codecs) {
         this.baseDir = Objects.requireNonNull(baseDir, "baseDir");
         this.clock = Objects.requireNonNull(clock, "clock");
-        this.metadataStore = metadataStore != null ? metadataStore : new RocksDbMetadataStore(baseDir.resolve("metadata"));
+        this.metadataStore = metadataStore != null ? metadataStore : defaultMetadataStore(baseDir);
         this.codecs = Objects.requireNonNull(codecs, "codecs");
         this.jsonCodec = loadJsonCodec();
 
@@ -61,6 +63,17 @@ public final class BlockingFileStreamStore implements StreamStore, AutoCloseable
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    private static MetadataStore defaultMetadataStore(Path baseDir) {
+        Path metadataDir = baseDir.resolve("metadata").toAbsolutePath().normalize();
+        return SHARED_METADATA.compute(metadataDir, (key, existing) -> {
+            if (existing == null) {
+                return new SharedMetadataStore(key);
+            }
+            existing.retain();
+            return existing;
+        });
     }
 
     @Override
@@ -91,7 +104,16 @@ public final class BlockingFileStreamStore implements StreamStore, AutoCloseable
             if (initialBody != null) {
                 try (FileChannel channel = FileChannel.open(dataPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
                     if (isJson(config.contentType())) {
-                        dataSize = appendJson(channel, initialBody);
+                        if (jsonCodec.isPresent()) {
+                            dataSize = appendJson(channel, initialBody);
+                        } else {
+                            byte[] raw = initialBody.readAllBytes();
+                            if (isEmptyJsonArray(raw)) {
+                                dataSize = 0;
+                            } else {
+                                throw new IllegalArgumentException("application/json requires an installed JSON codec module");
+                            }
+                        }
                     } else {
                         dataSize = writeBinary(channel, initialBody);
                     }
@@ -290,6 +312,21 @@ public final class BlockingFileStreamStore implements StreamStore, AutoCloseable
         }
     }
 
+    private static boolean isEmptyJsonArray(byte[] raw) {
+        int start = 0;
+        while (start < raw.length && Character.isWhitespace((char) raw[start])) {
+            start++;
+        }
+        int end = raw.length - 1;
+        while (end >= start && Character.isWhitespace((char) raw[end])) {
+            end--;
+        }
+        if (end < start) {
+            return true;
+        }
+        return end - start == 1 && raw[start] == '[' && raw[end] == ']';
+    }
+
     private long appendJson(FileChannel channel, InputStream body) throws IOException {
         byte[] raw = body.readAllBytes();
         if (raw.length == 0) return 0;
@@ -385,7 +422,56 @@ public final class BlockingFileStreamStore implements StreamStore, AutoCloseable
 
     @Override
     public void close() throws IOException {
+        if (metadataStore instanceof SharedMetadataStore shared) {
+            if (shared.release()) {
+                SHARED_METADATA.remove(shared.metadataDir, shared);
+                shared.closeDelegate();
+            }
+            return;
+        }
         metadataStore.close();
+    }
+
+    private static final class SharedMetadataStore implements MetadataStore {
+        private final Path metadataDir;
+        private final RocksDbMetadataStore delegate;
+        private final AtomicInteger refCount = new AtomicInteger(1);
+
+        private SharedMetadataStore(Path metadataDir) {
+            this.metadataDir = metadataDir;
+            this.delegate = new RocksDbMetadataStore(metadataDir);
+        }
+
+        private void retain() {
+            refCount.incrementAndGet();
+        }
+
+        private boolean release() {
+            return refCount.decrementAndGet() == 0;
+        }
+
+        private void closeDelegate() {
+            delegate.close();
+        }
+
+        @Override
+        public Optional<FileStreamMetadata> get(URI url) {
+            return delegate.get(url);
+        }
+
+        @Override
+        public void put(URI url, FileStreamMetadata meta) {
+            delegate.put(url, meta);
+        }
+
+        @Override
+        public boolean delete(URI url) {
+            return delegate.delete(url);
+        }
+
+        @Override
+        public void close() {
+        }
     }
 
     private void deleteStreamSync(URI url, Path dir) throws IOException {

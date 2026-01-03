@@ -36,6 +36,14 @@ tasks.register<JavaExec>("runConformanceServer") {
     classpath = sourceSets.main.get().runtimeClasspath
 }
 
+tasks.register<JavaExec>("runFileConformanceServer") {
+    group = "application"
+    description = "Start the Javalin conformance server on port 4437."
+    dependsOn(tasks.named("classes"))
+    mainClass.set("io.durablestreams.conformance.FileConformanceServer")
+    classpath = sourceSets.main.get().runtimeClasspath
+}
+
 tasks.register<JavaExec>("runClientAdapter") {
     group = "application"
     description = "Run the client conformance adapter via Gradle."

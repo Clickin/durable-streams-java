@@ -53,6 +53,22 @@ JSON mode is required by the protocol and implemented via the JSON SPI. You can 
 - Default codec discovery uses `ServiceLoader` via `StreamCodecProvider`.
 - To avoid Jackson, ship your own module that implements `JsonCodec` and `StreamCodecProvider` for `application/json`.
 
+## RocksDB native binaries
+
+RocksDB JNI publishes OS-specific classifier jars. This project selects a classifier at runtime so builds stay small.
+
+- Default: detect current OS
+- Override with Gradle property: `-ProcksdbClassifier=win64`
+- Override with env var: `ROCKSDB_CLASSIFIER=win64`
+
+Common classifiers: `win64`, `linux64`, `osx`.
+
+Example:
+
+```
+./gradlew :durable-streams-server-core:build -ProcksdbClassifier=linux64
+```
+
 ## Client usage
 
 Basic usage:

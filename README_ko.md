@@ -54,6 +54,22 @@ durable-streams 의 적합성 테스트 통과
 - 기본 코덱 발견은 `StreamCodecProvider`를 통한 `ServiceLoader`를 사용합니다.
 - Jackson을 피하고 싶다면 `JsonCodec`과 `StreamCodecProvider`를 구현한 자체 모듈을 `application/json`용으로 제공하면 됩니다.
 
+## RocksDB 네이티브 바이너리
+
+RocksDB JNI는 OS별 classifier jar로 네이티브 바이너리를 제공합니다. 이 프로젝트는 빌드 크기를 줄이기 위해 런타임에 classifier를 선택합니다.
+
+- 기본값: 현재 OS 자동 감지
+- Gradle 프로퍼티로 오버라이드: `-ProcksdbClassifier=win64`
+- 환경변수로 오버라이드: `ROCKSDB_CLASSIFIER=win64`
+
+자주 쓰는 classifier: `win64`, `linux64`, `osx`.
+
+예시:
+
+```
+./gradlew :durable-streams-server-core:build -ProcksdbClassifier=linux64
+```
+
 ## 클라이언트 사용법
 
 기본 사용법:
