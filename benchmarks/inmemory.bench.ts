@@ -11,8 +11,8 @@
 
 import { runBenchmarks } from "@durable-streams/benchmarks"
 
-const baseUrl = process.env.BASE_URL || "http://127.0.0.1:4432"
-const environment = process.env.ENVIRONMENT || "quarkus-inmemory"
+const baseUrl = "http://127.0.0.1:4432"
+const environment = "quarkus-inmemory"
 
 console.log(`\n🚀 Running benchmarks against: ${baseUrl}`)
 console.log(`📊 Environment: ${environment}`)

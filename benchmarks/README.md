@@ -8,6 +8,12 @@ Benchmark suite for durable-streams-java using the official upstream [@durable-s
 - Node.js 18+
 - Quarkus server running
 
+**First time setup:**
+```bash
+cd benchmarks
+npm install
+```
+
 ## Storage Backends
 
 ### InMemoryStreamStore (Default)
