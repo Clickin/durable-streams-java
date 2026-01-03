@@ -46,6 +46,47 @@ These modules expose the full protocol via framework-specific adapters and are u
     - Correct ETag generation and cache control
     - Proper handling of `Stream-Seq` for writer coordination
 
+## Performance: Sync vs Async Storage
+
+Early in development, we benchmarked three storage approaches:
+1. **Blocking I/O** - Synchronous `FileChannel` (baseline)
+2. **NIO Async** - `AsynchronousFileChannel` with callbacks
+3. **Virtual Threads** - Blocking I/O wrapped with virtual thread executor (current implementation)
+
+### Benchmark Results
+
+| Workload | Blocking | NIO Async | Virtual Threads (Winner) |
+|----------|----------|-----------|--------------------------|
+| Sequential writes | Baseline | Slower (callback overhead) | Similar to baseline |
+| Sequential reads | Baseline | Slower (callback overhead) | Similar to baseline |
+| Concurrent reads | Baseline | **1.08x faster** | **1.33x faster** ⭐ |
+| Mixed (70% read, 30% write) | Baseline | Equivalent | Equivalent |
+| Await latency | ~2.4ms | ~2.4ms | ~2.4ms |
+
+### Key Findings
+
+- **Virtual Threads won** for concurrent read-heavy workloads (1.33x faster)
+- NIO async showed callback overhead in sequential operations
+- All implementations had similar await latency (~2.4ms)
+- Virtual threads provide the best balance of performance and code simplicity
+
+### Why Virtual Threads + Blocking I/O?
+
+**Critical insight**: Java's `AsynchronousFileChannel` is **not truly asynchronous**. It uses an internal thread pool to emulate async behavior because most operating systems (pre-io_uring on Linux) don't provide native async file I/O APIs. This means:
+
+- `AsynchronousFileChannel` = Hidden thread pool + Blocking I/O + Callback wrapper
+- **Virtual Threads** = Explicit thread pool + Blocking I/O + Simpler code
+
+Since both approaches use threads internally, Virtual Threads eliminate the callback complexity while delivering **better performance** (1.33x faster for concurrent reads). We get:
+- ✅ Simpler, more maintainable code
+- ✅ Better performance
+- ✅ Full control over thread pool sizing
+- ✅ No hidden thread pool surprises
+
+**Conclusion**: We chose **Virtual Threads + Blocking I/O** as it delivers superior concurrent performance without callback complexity. The "async" in `AsynchronousFileChannel` was just hidden threads anyway.
+
+> **Note**: The async NIO implementation was removed in favor of the simpler and faster virtual thread approach. See commit [`40fba4b`](https://github.com/durable-streams/durable-streams-java/commit/40fba4b432112779bd3d8ef582ded54f836f20c8) for the original benchmark code.
+
 ## JSON mode
 
 JSON mode is required by the protocol and implemented via the JSON SPI. You can use the Jackson module or provide your own codec implementation.
