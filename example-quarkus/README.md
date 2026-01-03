@@ -1,62 +1,36 @@
-# quarkus-example
+# Example: Quarkus Durable Streams server
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+This module is a minimal Durable Streams server implementation using Quarkus and `durable-streams-quarkus`.
+It exists primarily to run the protocol conformance suite.
 
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+## Requirements
 
-## Running the application in dev mode
+- JDK 17+ (JDK 21 recommended)
+- Node.js (only needed for conformance tests)
 
-You can run your application in dev mode that enables live coding using:
+## Run
 
-```shell script
-./gradlew quarkusDev
+From the repo root:
+
+```bash
+./gradlew :example-quarkus:quarkusRun
 ```
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
+The server listens on `http://127.0.0.1:4432`.
 
-## Packaging and running the application
+- Port config: `src/main/resources/application.properties` (`quarkus.http.port`)
 
-The application can be packaged using:
+## Conformance
 
-```shell script
-./gradlew build
+From the repo root:
+
+```bash
+npm ci --prefix conformance-node
+npm --prefix conformance-node run test:quarkus
 ```
 
-It produces the `quarkus-run.jar` file in the `build/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `build/quarkus-app/lib/` directory.
+Override the target URL (optional):
 
-The application is now runnable using `java -jar build/quarkus-app/quarkus-run.jar`.
-
-If you want to build an _über-jar_, execute the following command:
-
-```shell script
-./gradlew build -Dquarkus.package.jar.type=uber-jar
+```bash
+STREAM_URL=http://127.0.0.1:4432 npm --prefix conformance-node run test:quarkus
 ```
-
-The application, packaged as an _über-jar_, is now runnable using `java -jar build/*-runner.jar`.
-
-## Creating a native executable
-
-You can create a native executable using:
-
-```shell script
-./gradlew build -Dquarkus.native.enabled=true
-```
-
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
-
-```shell script
-./gradlew build -Dquarkus.native.enabled=true -Dquarkus.native.container-build=true
-```
-
-You can then execute your native executable with: `./build/code-with-quarkus-1.0.0-SNAPSHOT-runner`
-
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/gradle-tooling>.
-
-## Provided Code
-
-### REST
-
-Easily start your REST Web Services
-
-[Related guide section...](https://quarkus.io/guides/getting-started-reactive#reactive-jax-rs-resources)

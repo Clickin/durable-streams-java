@@ -1,21 +1,36 @@
-## Micronaut 4.7.0 Documentation
+# Example: Micronaut Durable Streams server
 
-- [User Guide](https://docs.micronaut.io/4.7.0/guide/index.html)
-- [API Reference](https://docs.micronaut.io/4.7.0/api/index.html)
-- [Configuration Reference](https://docs.micronaut.io/4.7.0/guide/configurationreference.html)
-- [Micronaut Guides](https://guides.micronaut.io/index.html)
----
+This module is a minimal Durable Streams server implementation using Micronaut and `durable-streams-micronaut`.
+It exists primarily to run the protocol conformance suite.
 
-- [Shadow Gradle Plugin](https://plugins.gradle.org/plugin/com.github.johnrengelman.shadow)
-- [Micronaut Gradle Plugin documentation](https://micronaut-projects.github.io/micronaut-gradle-plugin/latest/)
-- [GraalVM Gradle Plugin documentation](https://graalvm.github.io/native-build-tools/latest/gradle-plugin.html)
-## Feature micronaut-aot documentation
+## Requirements
 
-- [Micronaut AOT documentation](https://micronaut-projects.github.io/micronaut-aot/latest/guide/)
+- JDK 17+ (JDK 21 recommended)
+- Node.js (only needed for conformance tests)
 
+## Run
 
-## Feature serialization-jackson documentation
+From the repo root:
 
-- [Micronaut Serialization Jackson Core documentation](https://micronaut-projects.github.io/micronaut-serialization/latest/guide/)
+```bash
+./gradlew :example-micronaut:run
+```
 
+The server listens on `http://127.0.0.1:4431`.
 
+- Port config: `src/main/resources/application.properties` (`micronaut.server.port`)
+
+## Conformance
+
+From the repo root:
+
+```bash
+npm ci --prefix conformance-node
+npm --prefix conformance-node run test:micronaut
+```
+
+Override the target URL (optional):
+
+```bash
+STREAM_URL=http://127.0.0.1:4431 npm --prefix conformance-node run test:micronaut
+```
