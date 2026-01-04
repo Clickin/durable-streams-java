@@ -1,10 +1,10 @@
 package com.example.durable.streams.webmvc;
 
-import io.durablestreams.server.core.CachePolicy;
-import io.durablestreams.server.core.DurableStreamsHandler;
-import io.durablestreams.server.core.InMemoryStreamStore;
-import io.durablestreams.server.spi.CursorPolicy;
-import io.durablestreams.servlet.DurableStreamsServlet;
+import io.github.clickin.server.core.CachePolicy;
+import io.github.clickin.server.core.DurableStreamsHandler;
+import io.github.clickin.server.core.InMemoryStreamStore;
+import io.github.clickin.server.spi.CursorPolicy;
+import io.github.clickin.servlet.DurableStreamsServlet;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;

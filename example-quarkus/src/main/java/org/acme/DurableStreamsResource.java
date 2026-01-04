@@ -1,13 +1,13 @@
 package org.acme;
 
-import io.durablestreams.quarkus.DurableStreamsQuarkusAdapter;
-import io.durablestreams.server.core.BlockingFileStreamStore;
-import io.durablestreams.server.core.CachePolicy;
-import io.durablestreams.server.core.DurableStreamsHandler;
-import io.durablestreams.server.core.HttpMethod;
-import io.durablestreams.server.core.InMemoryStreamStore;
-import io.durablestreams.server.spi.CursorPolicy;
-import io.durablestreams.server.spi.StreamStore;
+import io.github.clickin.quarkus.DurableStreamsQuarkusAdapter;
+import io.github.clickin.server.core.BlockingFileStreamStore;
+import io.github.clickin.server.core.CachePolicy;
+import io.github.clickin.server.core.DurableStreamsHandler;
+import io.github.clickin.server.core.HttpMethod;
+import io.github.clickin.server.core.InMemoryStreamStore;
+import io.github.clickin.server.spi.CursorPolicy;
+import io.github.clickin.server.spi.StreamStore;
 import jakarta.inject.Singleton;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;

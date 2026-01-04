@@ -1,10 +1,10 @@
 package example.ktor
 
-import io.durablestreams.ktor.DurableStreamsKtorAdapter
-import io.durablestreams.server.core.CachePolicy
-import io.durablestreams.server.core.DurableStreamsHandler
-import io.durablestreams.server.core.InMemoryStreamStore
-import io.durablestreams.server.spi.CursorPolicy
+import io.github.clickin.ktor.DurableStreamsKtorAdapter
+import io.github.clickin.server.core.CachePolicy
+import io.github.clickin.server.core.DurableStreamsHandler
+import io.github.clickin.server.core.InMemoryStreamStore
+import io.github.clickin.server.spi.CursorPolicy
 import io.ktor.server.application.Application
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty

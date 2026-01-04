@@ -1,0 +1,83 @@
+name: Publish Dry Run
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  publish-dryrun:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Publish to local repository (dry-run)
+        run: |
+          chmod +x ./gradlew
+          ./gradlew publishToMavenLocal --no-daemon
+
+      - name: Verify published artifacts
+        run: |
+          echo "Verifying published artifacts..."
+          EXPECTED_MODULES=(
+            "durable-streams-core"
+            "durable-streams-client"
+            "durable-streams-json-spi"
+            "durable-streams-json-jackson"
+            "durable-streams-server-spi"
+            "durable-streams-server-core"
+            "durable-streams-servlet"
+            "durable-streams-spring-webflux"
+            "durable-streams-micronaut"
+            "durable-streams-quarkus"
+            "durable-streams-ktor"
+          )
+          
+          MAVEN_LOCAL="$HOME/.m2/repository/io/github/clickin"
+          
+          for module in "${EXPECTED_MODULES[@]}"; do
+            if [ -d "$MAVEN_LOCAL/$module" ]; then
+              echo "✓ $module published successfully"
+            else
+              echo "✗ $module NOT found in local Maven repository"
+              exit 1
+            fi
+          done
+          
+          # Verify that excluded modules are NOT published
+          EXCLUDED_MODULES=(
+            "durable-streams-conformance-runner"
+            "example-micronaut"
+            "example-quarkus"
+            "example-spring-webflux"
+            "example-spring-webmvc"
+            "example-ktor"
+          )
+          
+          for module in "${EXCLUDED_MODULES[@]}"; do
+            if [ -d "$MAVEN_LOCAL/$module" ]; then
+              echo "✗ $module should NOT be published but was found"
+              exit 1
+            else
+              echo "✓ $module correctly excluded from publishing"
+            fi
+          done
+          
+          echo ""
+          echo "All artifact checks passed!"
+
+      - name: List published artifacts
+        run: |
+          echo "Published artifacts structure:"
+          find $HOME/.m2/repository/io/github/clickin -type f -name "*.jar" -o -name "*.pom" | sort

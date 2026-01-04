@@ -26,7 +26,7 @@ dependencies {
 }
 
 application {
-    mainClass.set("io.durablestreams.conformance.ConformanceServer")
+    mainClass.set("io.github.clickin.conformance.ConformanceServer")
 }
 
 tasks.withType<JavaCompile>().configureEach {
@@ -37,7 +37,7 @@ tasks.register<JavaExec>("runConformanceServer") {
     group = "application"
     description = "Start the Javalin conformance server on port 4437."
     dependsOn(tasks.named("classes"))
-    mainClass.set("io.durablestreams.conformance.ConformanceServer")
+    mainClass.set("io.github.clickin.conformance.ConformanceServer")
     classpath = sourceSets.main.get().runtimeClasspath
 }
 
@@ -45,7 +45,7 @@ tasks.register<JavaExec>("runFileConformanceServer") {
     group = "application"
     description = "Start the Javalin conformance server on port 4437."
     dependsOn(tasks.named("classes"))
-    mainClass.set("io.durablestreams.conformance.FileConformanceServer")
+    mainClass.set("io.github.clickin.conformance.FileConformanceServer")
     classpath = sourceSets.main.get().runtimeClasspath
 }
 
@@ -53,7 +53,7 @@ tasks.register<JavaExec>("runClientAdapter") {
     group = "application"
     description = "Run the client conformance adapter via Gradle."
     dependsOn(tasks.named("classes"))
-    mainClass.set("io.durablestreams.conformance.ClientConformanceAdapter")
+    mainClass.set("io.github.clickin.conformance.ClientConformanceAdapter")
     classpath = sourceSets.main.get().runtimeClasspath
 }
 
@@ -64,7 +64,7 @@ tasks.register<Jar>("clientAdapterJar") {
     archiveVersion.set("")
     archiveClassifier.set("")
     manifest {
-        attributes["Main-Class"] = "io.durablestreams.conformance.ClientConformanceAdapter"
+        attributes["Main-Class"] = "io.github.clickin.conformance.ClientConformanceAdapter"
     }
     from(sourceSets.main.get().output)
     val runtimeClasspath = configurations.runtimeClasspath.get()

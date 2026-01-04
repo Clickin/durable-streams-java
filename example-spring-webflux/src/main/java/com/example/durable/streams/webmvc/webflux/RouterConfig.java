@@ -1,10 +1,10 @@
 package com.example.durable.streams.webmvc.webflux;
 
-import io.durablestreams.server.core.CachePolicy;
-import io.durablestreams.server.core.DurableStreamsHandler;
-import io.durablestreams.server.core.InMemoryStreamStore;
-import io.durablestreams.server.spi.CursorPolicy;
-import io.durablestreams.spring.webflux.DurableStreamsWebFluxAdapter;
+import io.github.clickin.server.core.CachePolicy;
+import io.github.clickin.server.core.DurableStreamsHandler;
+import io.github.clickin.server.core.InMemoryStreamStore;
+import io.github.clickin.server.spi.CursorPolicy;
+import io.github.clickin.spring.webflux.DurableStreamsWebFluxAdapter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.reactive.function.server.RouterFunction;

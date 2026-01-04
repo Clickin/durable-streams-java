@@ -126,7 +126,7 @@ Gradle:
 
 ```kotlin
 dependencies {
-    implementation("io.durablestreams:durable-streams-server-core:<version>")
+    implementation("io.github.clickin:durable-streams-server-core:<version>")
     runtimeOnly("org.rocksdb:rocksdbjni:<rocksdb-version>:linux64") // or win64/osx
 }
 ```
@@ -156,11 +156,11 @@ Common classifiers: `win64`, `linux64`, `osx`.
 Basic usage:
 
 ```java
-import io.durablestreams.client.AppendRequest;
-import io.durablestreams.client.CreateRequest;
-import io.durablestreams.client.DurableStreamsClient;
-import io.durablestreams.client.ReadRequest;
-import io.durablestreams.core.Offset;
+import io.github.clickin.client.AppendRequest;
+import io.github.clickin.client.CreateRequest;
+import io.github.clickin.client.DurableStreamsClient;
+import io.github.clickin.client.ReadRequest;
+import io.github.clickin.core.Offset;
 
 DurableStreamsClient client = DurableStreamsClient.create(); // uses JDK internal HTTP client by default
 
@@ -172,10 +172,10 @@ var read = client.readCatchUp(new ReadRequest(streamUrl, Offset.beginning(), nul
 Custom transport (no ServiceLoader, GraalVM-friendly):
 
 ```java
-import io.durablestreams.client.DurableStreamsClient;
-import io.durablestreams.client.DurableStreamsTransport;
-import io.durablestreams.client.TransportRequest;
-import io.durablestreams.client.TransportResponse;
+import io.github.clickin.client.DurableStreamsClient;
+import io.github.clickin.client.DurableStreamsTransport;
+import io.github.clickin.client.TransportRequest;
+import io.github.clickin.client.TransportResponse;
 
 DurableStreamsTransport transport = new MyHttpTransport();
 DurableStreamsClient client = DurableStreamsClient.builder()
@@ -190,15 +190,15 @@ These examples wire the protocol handler into common frameworks. They follow the
 ### Javalin
 
 ```java
-import io.durablestreams.server.core.CachePolicy;
-import io.durablestreams.server.core.DurableStreamsHandler;
-import io.durablestreams.server.core.HttpMethod;
-import io.durablestreams.server.core.InMemoryStreamStore;
-import io.durablestreams.server.core.ResponseBody;
-import io.durablestreams.server.core.ServerRequest;
-import io.durablestreams.server.core.ServerResponse;
-import io.durablestreams.server.core.SseFrame;
-import io.durablestreams.server.spi.CursorPolicy;
+import io.github.clickin.server.core.CachePolicy;
+import io.github.clickin.server.core.DurableStreamsHandler;
+import io.github.clickin.server.core.HttpMethod;
+import io.github.clickin.server.core.InMemoryStreamStore;
+import io.github.clickin.server.core.ResponseBody;
+import io.github.clickin.server.core.ServerRequest;
+import io.github.clickin.server.core.ServerResponse;
+import io.github.clickin.server.core.SseFrame;
+import io.github.clickin.server.spi.CursorPolicy;
 import io.javalin.Javalin;
 import io.javalin.http.Context;
 
@@ -308,11 +308,11 @@ static void writeSse(Context ctx, Flow.Publisher<SseFrame> publisher) throws Exc
 ```java
 package com.example.durable.streams.webmvc;
 
-import io.durablestreams.server.core.CachePolicy;
-import io.durablestreams.server.core.DurableStreamsHandler;
-import io.durablestreams.server.core.InMemoryStreamStore;
-import io.durablestreams.server.spi.CursorPolicy;
-import io.durablestreams.servlet.DurableStreamsServlet;
+import io.github.clickin.server.core.CachePolicy;
+import io.github.clickin.server.core.DurableStreamsHandler;
+import io.github.clickin.server.core.InMemoryStreamStore;
+import io.github.clickin.server.spi.CursorPolicy;
+import io.github.clickin.servlet.DurableStreamsServlet;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
@@ -345,11 +345,11 @@ public class DurableStreamController {
 ```java
 package com.example.durable.streams.webmvc.webflux;
 
-import io.durablestreams.server.core.CachePolicy;
-import io.durablestreams.server.core.DurableStreamsHandler;
-import io.durablestreams.server.core.InMemoryStreamStore;
-import io.durablestreams.server.spi.CursorPolicy;
-import io.durablestreams.spring.webflux.DurableStreamsWebFluxAdapter;
+import io.github.clickin.server.core.CachePolicy;
+import io.github.clickin.server.core.DurableStreamsHandler;
+import io.github.clickin.server.core.InMemoryStreamStore;
+import io.github.clickin.server.spi.CursorPolicy;
+import io.github.clickin.spring.webflux.DurableStreamsWebFluxAdapter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.reactive.function.server.RouterFunction;
@@ -388,11 +388,11 @@ public class RouterConfig {
 ### Micronaut
 
 ```java
-import io.durablestreams.micronaut.DurableStreamsMicronautAdapter;
-import io.durablestreams.server.core.CachePolicy;
-import io.durablestreams.server.core.DurableStreamsHandler;
-import io.durablestreams.server.core.InMemoryStreamStore;
-import io.durablestreams.server.spi.CursorPolicy;
+import io.github.clickin.micronaut.DurableStreamsMicronautAdapter;
+import io.github.clickin.server.core.CachePolicy;
+import io.github.clickin.server.core.DurableStreamsHandler;
+import io.github.clickin.server.core.InMemoryStreamStore;
+import io.github.clickin.server.spi.CursorPolicy;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.MediaType;
@@ -451,12 +451,12 @@ final class DurableStreamsController {
 ### Quarkus (RESTEasy Reactive)
 
 ```java
-import io.durablestreams.quarkus.DurableStreamsQuarkusAdapter;
-import io.durablestreams.server.core.CachePolicy;
-import io.durablestreams.server.core.DurableStreamsHandler;
-import io.durablestreams.server.core.HttpMethod;
-import io.durablestreams.server.core.InMemoryStreamStore;
-import io.durablestreams.server.spi.CursorPolicy;
+import io.github.clickin.quarkus.DurableStreamsQuarkusAdapter;
+import io.github.clickin.server.core.CachePolicy;
+import io.github.clickin.server.core.DurableStreamsHandler;
+import io.github.clickin.server.core.HttpMethod;
+import io.github.clickin.server.core.InMemoryStreamStore;
+import io.github.clickin.server.spi.CursorPolicy;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HEAD;
@@ -516,11 +516,11 @@ public class DurableStreamsResource {
 ### Ktor (Netty)
 
 ```kotlin
-import io.durablestreams.ktor.DurableStreamsKtorAdapter
-import io.durablestreams.server.core.CachePolicy
-import io.durablestreams.server.core.DurableStreamsHandler
-import io.durablestreams.server.core.InMemoryStreamStore
-import io.durablestreams.server.spi.CursorPolicy
+import io.github.clickin.ktor.DurableStreamsKtorAdapter
+import io.github.clickin.server.core.CachePolicy
+import io.github.clickin.server.core.DurableStreamsHandler
+import io.github.clickin.server.core.InMemoryStreamStore
+import io.github.clickin.server.spi.CursorPolicy
 import io.ktor.server.application.Application
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
@@ -568,9 +568,9 @@ dependencies {
 Usage:
 
 ```java
-import io.durablestreams.client.DurableStreamsClient;
-import io.durablestreams.client.LiveLongPollRequest;
-import io.durablestreams.core.StreamEvent;
+import io.github.clickin.client.DurableStreamsClient;
+import io.github.clickin.client.LiveLongPollRequest;
+import io.github.clickin.core.StreamEvent;
 import org.reactivestreams.FlowAdapters;
 import reactor.core.publisher.Flux;
 
@@ -593,8 +593,8 @@ dependencies {
 Usage:
 
 ```java
-import io.durablestreams.client.DurableStreamsClient;
-import io.durablestreams.core.StreamEvent;
+import io.github.clickin.client.DurableStreamsClient;
+import io.github.clickin.core.StreamEvent;
 import io.reactivex.rxjava3.core.Flowable;
 import org.reactivestreams.FlowAdapters;
 
@@ -617,8 +617,8 @@ dependencies {
 Usage:
 
 ```kotlin
-import io.durablestreams.client.DurableStreamsClient
-import io.durablestreams.core.StreamEvent
+import io.github.clickin.client.DurableStreamsClient
+import io.github.clickin.core.StreamEvent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.reactive.asFlow
 import org.reactivestreams.FlowAdapters

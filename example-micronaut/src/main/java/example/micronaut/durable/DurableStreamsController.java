@@ -1,10 +1,10 @@
 package example.micronaut.durable;
 
-import io.durablestreams.micronaut.DurableStreamsMicronautAdapter;
-import io.durablestreams.server.core.CachePolicy;
-import io.durablestreams.server.core.DurableStreamsHandler;
-import io.durablestreams.server.core.InMemoryStreamStore;
-import io.durablestreams.server.spi.CursorPolicy;
+import io.github.clickin.micronaut.DurableStreamsMicronautAdapter;
+import io.github.clickin.server.core.CachePolicy;
+import io.github.clickin.server.core.DurableStreamsHandler;
+import io.github.clickin.server.core.InMemoryStreamStore;
+import io.github.clickin.server.spi.CursorPolicy;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.MediaType;
