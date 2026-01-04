@@ -11,9 +11,13 @@ import java.util.Optional;
 public final class ReadOutcome {
 
     public enum Status {
+        /** Content returned (200) or 304 if up-to-date. */
         OK,
+        /** Stream not found (404). */
         NOT_FOUND,
+        /** Stream expired or deleted (410). */
         GONE,
+        /** Invalid request parameters (400). */
         BAD_REQUEST
     }
 
@@ -26,6 +30,17 @@ public final class ReadOutcome {
     private final Optional<String> streamCursor;
     private final FileRegion fileRegion;
 
+    /**
+     * Creates a new read outcome with in-memory body.
+     *
+     * @param status the status
+     * @param body the body bytes (may be null for 304 or empty)
+     * @param contentType the content type
+     * @param nextOffset the next offset
+     * @param upToDate true if reader is up-to-date
+     * @param etag the ETag
+     * @param streamCursor the optional cursor for live mode
+     */
     public ReadOutcome(
             Status status,
             byte[] body,
@@ -38,6 +53,18 @@ public final class ReadOutcome {
         this(status, body, contentType, nextOffset, upToDate, etag, streamCursor, null);
     }
 
+    /**
+     * Creates a new read outcome with optional zero-copy file region.
+     *
+     * @param status the status
+     * @param body the body bytes (may be null)
+     * @param contentType the content type
+     * @param nextOffset the next offset
+     * @param upToDate true if reader is up-to-date
+     * @param etag the ETag
+     * @param streamCursor the optional cursor
+     * @param fileRegion the optional file region for zero-copy transfer
+     */
     public ReadOutcome(
             Status status,
             byte[] body,
@@ -57,6 +84,7 @@ public final class ReadOutcome {
         this.streamCursor = Optional.ofNullable(streamCursor);
         this.fileRegion = fileRegion;
     }
+
 
 
     public Status status() {

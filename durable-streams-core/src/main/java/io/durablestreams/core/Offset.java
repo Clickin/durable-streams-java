@@ -14,14 +14,30 @@ public final class Offset implements Comparable<Offset> {
 
     private final String value;
 
+    /**
+     * Creates a new Offset wrapping the given string value.
+     *
+     * @param value the offset string (must not be null, empty, or contain reserved chars)
+     * @throws IllegalArgumentException if the value is invalid
+     */
     public Offset(String value) {
         this.value = validate(value);
     }
 
+    /**
+     * Returns the sentinel offset representing the beginning of a stream (-1).
+     *
+     * @return the beginning offset
+     */
     public static Offset beginning() {
         return new Offset(Protocol.OFFSET_BEGINNING);
     }
 
+    /**
+     * Returns the underlying string value of this offset.
+     *
+     * @return the offset string
+     */
     public String value() {
         return value;
     }

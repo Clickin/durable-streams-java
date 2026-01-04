@@ -23,12 +23,34 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Flow;
 
+/**
+ * Servlet adapter for Durable Streams.
+ *
+ * <p>Can be registered as a standard {@link HttpServlet} in any Servlet container (Tomcat, Jetty, Undertow, etc.)
+ * or used within Spring MVC via {@code ServletRegistrationBean}.
+ *
+ * <p>Usage:
+ * <pre>{@code
+ * @Bean
+ * public ServletRegistrationBean<DurableStreamsServlet> durableStreamsServlet(DurableStreamsHandler handler) {
+ *     return new ServletRegistrationBean<>(new DurableStreamsServlet(handler), "/streams/*");
+ * }
+ * }</pre>
+ *
+ * <p>Supports Async Context for efficient SSE and Long-Polling.
+ */
 public final class DurableStreamsServlet extends HttpServlet {
     private final DurableStreamsHandler handler;
 
+    /**
+     * Creates a new servlet adapter.
+     *
+     * @param handler the protocol handler
+     */
     public DurableStreamsServlet(DurableStreamsHandler handler) {
         this.handler = handler;
     }
+
 
     @Override
     protected void service(HttpServletRequest req, HttpServletResponse resp) throws IOException {

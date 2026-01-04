@@ -32,7 +32,27 @@ import java.util.LinkedHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Flow
 
+/**
+ * Ktor server adapter for Durable Streams.
+ *
+ * Usage:
+ * ```kotlin
+ * routing {
+ *     route("{path...}") {
+ *         handle {
+ *             DurableStreamsKtorAdapter.handle(call, handler)
+ *         }
+ *     }
+ * }
+ * ```
+ */
 object DurableStreamsKtorAdapter {
+    /**
+     * Handles an incoming Ktor call using the Durable Streams handler.
+     *
+     * @param call the Ktor application call
+     * @param handler the Durable Streams handler instance
+     */
     suspend fun handle(call: ApplicationCall, handler: DurableStreamsHandler) {
         val request = toEngineRequest(call)
         val response = withContext(Dispatchers.IO) { handler.handle(request) }

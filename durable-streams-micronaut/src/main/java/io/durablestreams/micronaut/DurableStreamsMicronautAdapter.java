@@ -23,6 +23,28 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Flow;
 
+/**
+ * Micronaut HTTP controller adapter for Durable Streams.
+ *
+ * <p>Usage:
+ * <pre>{@code
+ * @Controller("/")
+ * public class DurableStreamsController {
+ *     private final DurableStreamsHandler handler;
+ *
+ *     public DurableStreamsController(DurableStreamsHandler handler) {
+ *         this.handler = handler;
+ *     }
+ *
+ *     @Get("/{+path}")
+ *     public HttpResponse<?> get(HttpRequest<?> request) {
+ *         return DurableStreamsMicronautAdapter.handle(request, handler);
+ *     }
+ *
+ *     // ... map other methods (POST, PUT, DELETE, HEAD) similarly
+ * }
+ * }</pre>
+ */
 public final class DurableStreamsMicronautAdapter {
     private DurableStreamsMicronautAdapter() {
     }

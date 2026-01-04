@@ -23,6 +23,18 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
+/**
+ * Production-ready file-based {@link StreamStore} implementation.
+ *
+ * <p>Features:
+ * <ul>
+ *   <li>Synchronous File I/O optimized for Virtual Threads (Java 21+)</li>
+ *   <li>Per-stream locking for strict consistency</li>
+ *   <li>Persistent metadata using RocksDB (via {@code durable-streams-server-core} dependency)</li>
+ * </ul>
+ *
+ * <p>This store is the recommended implementation for production deployments.
+ */
 public final class BlockingFileStreamStore implements StreamStore, AutoCloseable {
 
     private static final String DATA_FILE = "data.bin";
@@ -39,18 +51,43 @@ public final class BlockingFileStreamStore implements StreamStore, AutoCloseable
     private final ConcurrentHashMap<URI, ConcurrentLinkedQueue<CompletableFuture<Boolean>>> awaiters = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Path, SharedMetadataStore> SHARED_METADATA = new ConcurrentHashMap<>();
 
+    /**
+     * Creates a new store with default settings.
+     *
+     * @param baseDir the directory to store streams in
+     */
     public BlockingFileStreamStore(Path baseDir) {
         this(baseDir, Clock.systemUTC(), null, ServiceLoaderCodecRegistry.defaultRegistry());
     }
 
+    /**
+     * Creates a new store with a custom clock.
+     *
+     * @param baseDir the directory to store streams in
+     * @param clock the clock to use
+     */
     public BlockingFileStreamStore(Path baseDir, Clock clock) {
         this(baseDir, clock, null, ServiceLoaderCodecRegistry.defaultRegistry());
     }
 
+    /**
+     * Creates a new store with a custom metadata store.
+     *
+     * @param baseDir the directory to store streams in
+     * @param metadataStore the metadata store to use (if null, a default shared RocksDB store is used)
+     */
     public BlockingFileStreamStore(Path baseDir, MetadataStore metadataStore) {
         this(baseDir, Clock.systemUTC(), metadataStore, ServiceLoaderCodecRegistry.defaultRegistry());
     }
 
+    /**
+     * Creates a new store with full configuration.
+     *
+     * @param baseDir the directory to store streams in
+     * @param clock the clock to use
+     * @param metadataStore the metadata store to use (if null, a default shared RocksDB store is used)
+     * @param codecs the codec registry to use
+     */
     public BlockingFileStreamStore(Path baseDir, Clock clock, MetadataStore metadataStore, StreamCodecRegistry codecs) {
         this.baseDir = Objects.requireNonNull(baseDir, "baseDir");
         this.clock = Objects.requireNonNull(clock, "clock");
@@ -64,6 +101,7 @@ public final class BlockingFileStreamStore implements StreamStore, AutoCloseable
             throw new UncheckedIOException(e);
         }
     }
+
 
     private static MetadataStore defaultMetadataStore(Path baseDir) {
         Path metadataDir = baseDir.resolve("metadata").toAbsolutePath().normalize();

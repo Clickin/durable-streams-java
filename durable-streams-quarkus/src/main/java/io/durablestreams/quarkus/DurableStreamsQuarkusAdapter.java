@@ -22,6 +22,29 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow;
 
+/**
+ * Quarkus (JAX-RS) adapter for Durable Streams.
+ *
+ * <p>Usage:
+ * <pre>{@code
+ * @Path("/")
+ * public class DurableStreamsResource {
+ *     private final DurableStreamsHandler handler;
+ *
+ *     public DurableStreamsResource(DurableStreamsHandler handler) {
+ *         this.handler = handler;
+ *     }
+ *
+ *     @GET
+ *     @Path("{path:.*}")
+ *     public Response get(@Context UriInfo uriInfo, @Context HttpHeaders headers) {
+ *         return DurableStreamsQuarkusAdapter.handle(HttpMethod.GET, uriInfo.getRequestUri(), headers, null, handler);
+ *     }
+ *
+ *     // ... map other methods (POST, PUT, DELETE, HEAD) similarly
+ * }
+ * }</pre>
+ */
 public final class DurableStreamsQuarkusAdapter {
     private DurableStreamsQuarkusAdapter() {
     }

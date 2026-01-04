@@ -14,6 +14,11 @@ import java.util.Optional;
 import java.util.concurrent.Flow;
 import java.util.concurrent.SubmissionPublisher;
 
+/**
+ * Internal implementation of the Long-Poll loop.
+ *
+ * <p>This class is not intended to be used directly by clients.
+ */
 public final class LongPollLoop {
 
     private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(25);

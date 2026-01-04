@@ -28,6 +28,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Flow;
 
+/**
+ * Spring WebFlux functional handler adapter for Durable Streams.
+ *
+ * <p>Can be mapped using {@link org.springframework.web.reactive.function.server.RouterFunction}.
+ *
+ * <p>Example:
+ * <pre>{@code
+ * @Bean
+ * public RouterFunction<ServerResponse> durableStreamsRoutes(DurableStreamsWebFluxAdapter adapter) {
+ *     return RouterFunctions.route()
+ *         .add(RouterFunctions.route(req -> true, adapter::handle))
+ *         .build();
+ * }
+ * }</pre>
+ *
+ * <p>Uses {@link reactor.core.scheduler.Schedulers#boundedElastic()} for blocking store operations.
+ */
 public final class DurableStreamsWebFluxAdapter {
     private static final DefaultDataBufferFactory DATA_BUFFER_FACTORY = new DefaultDataBufferFactory();
 

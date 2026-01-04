@@ -13,6 +13,13 @@ import java.util.TreeMap;
 public final class Urls {
     private Urls() {}
 
+    /**
+     * Appends query parameters to a base URI with keys sorted lexicographically.
+     *
+     * @param base the base URI to append parameters to
+     * @param params the map of query parameters to append (keys/values will be URL-encoded)
+     * @return a new URI with the sorted query string appended
+     */
     public static URI withQuery(URI base, Map<String, String> params) {
         Objects.requireNonNull(base, "base");
         if (params == null || params.isEmpty()) return base;

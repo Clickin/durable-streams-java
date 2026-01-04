@@ -17,14 +17,28 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.Flow;
 
+/**
+ * Default implementation of {@link DurableStreamsClient} using {@link java.net.http.HttpClient}.
+ *
+ * <p>This class is thread-safe and intended to be shared.
+ */
 public final class JdkDurableStreamsClient implements DurableStreamsClient {
-
     private final DurableStreamsTransport transport;
 
+    /**
+     * Creates a new client using the given JDK HttpClient.
+     *
+     * @param http the JDK HttpClient to use
+     */
     public JdkDurableStreamsClient(HttpClient http) {
         this(new JdkHttpTransport(http));
     }
 
+    /**
+     * Creates a new client using the given transport.
+     *
+     * @param transport the transport to use
+     */
     public JdkDurableStreamsClient(DurableStreamsTransport transport) {
         this.transport = Objects.requireNonNull(transport, "transport");
     }

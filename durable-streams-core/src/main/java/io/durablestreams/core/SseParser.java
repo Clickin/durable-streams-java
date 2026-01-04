@@ -15,11 +15,21 @@ public final class SseParser implements AutoCloseable {
 
     private final BufferedReader in;
 
+    /**
+     * Creates a new SSE parser reading from the given input stream.
+     *
+     * @param is the input stream to read from
+     */
     public SseParser(InputStream is) {
         this.in = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
     }
 
-    /** @return next event, or {@code null} if EOF */
+    /**
+     * Reads the next SSE event from the stream.
+     *
+     * @return the next event, or {@code null} if EOF is reached
+     * @throws IOException if an I/O error occurs
+     */
     public Event next() throws IOException {
         String eventType = "message";
         StringBuilder data = new StringBuilder();

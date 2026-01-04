@@ -12,8 +12,34 @@ package io.durablestreams.core;
 public final class ControlJson {
     private ControlJson() {}
 
+    /**
+     * Represents the parsed control structure.
+     *
+     * @param streamNextOffset the next offset to fetch from (required)
+     * @param streamCursor the cursor for the next fetch (optional, may be null/empty)
+     */
+    /**
+     * Represents the parsed control structure.
+     *
+     * @param streamNextOffset the next offset to fetch from (required)
+     * @param streamCursor the cursor for the next fetch (optional, may be null/empty)
+     */
     public record Control(String streamNextOffset, String streamCursor) {}
 
+    /**
+     * Parses the control event JSON.
+     *
+     * @param json the raw JSON body from the control event
+     * @return the parsed {@link Control} object
+     * @throws IllegalArgumentException if the JSON is null or missing required fields
+     */
+    /**
+     * Parses the control event JSON.
+     *
+     * @param json the raw JSON body from the control event
+     * @return the parsed {@link Control} object
+     * @throws IllegalArgumentException if the JSON is null or missing required fields
+     */
     public static Control parse(String json) {
         if (json == null) throw new IllegalArgumentException("json must not be null");
 
@@ -25,6 +51,18 @@ public final class ControlJson {
         return new Control(next, cursor);
     }
 
+    /**
+     * Checks if the control event indicates the client is up-to-date.
+     *
+     * @param json the raw JSON body from the control event
+     * @return {@code true} if the "upToDate" field is present and true
+     */
+    /**
+     * Checks if the control event indicates the client is up-to-date.
+     *
+     * @param json the raw JSON body from the control event
+     * @return {@code true} if the "upToDate" field is present and true
+     */
     public static boolean parseUpToDate(String json) {
         if (json == null) return false;
         Boolean value = extractBoolean(json, "upToDate");

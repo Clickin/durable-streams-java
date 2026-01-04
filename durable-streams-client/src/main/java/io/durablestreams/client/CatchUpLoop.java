@@ -6,6 +6,11 @@ import io.durablestreams.core.StreamEvent;
 import java.util.concurrent.Flow;
 import java.util.concurrent.SubmissionPublisher;
 
+/**
+ * Internal implementation of the Catch-Up loop.
+ *
+ * <p>This class is not intended to be used directly by clients.
+ */
 public final class CatchUpLoop {
 
     private final DurableStreamsClient client;

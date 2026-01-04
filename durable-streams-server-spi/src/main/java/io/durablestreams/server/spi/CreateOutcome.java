@@ -9,20 +9,31 @@ import java.util.Objects;
  */
 public final class CreateOutcome {
     public enum Status {
+        /** Successfully created. */
         CREATED,
-        EXISTS_MATCH,      // idempotent success
-        EXISTS_CONFLICT    // configuration mismatch
+        /** Stream already exists with matching config (idempotent success). */
+        EXISTS_MATCH,
+        /** Stream exists but config conflicts. */
+        EXISTS_CONFLICT
     }
 
     private final Status status;
     private final StreamMetadata metadata;
     private final Offset nextOffset;
 
+    /**
+     * Creates a new create outcome.
+     *
+     * @param status the outcome status
+     * @param metadata the stream metadata (existing or new)
+     * @param nextOffset the next offset of the stream
+     */
     public CreateOutcome(Status status, StreamMetadata metadata, Offset nextOffset) {
         this.status = Objects.requireNonNull(status, "status");
         this.metadata = Objects.requireNonNull(metadata, "metadata");
         this.nextOffset = Objects.requireNonNull(nextOffset, "nextOffset");
     }
+
 
     public Status status() {
         return status;

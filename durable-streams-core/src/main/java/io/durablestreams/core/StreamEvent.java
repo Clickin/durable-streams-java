@@ -12,7 +12,12 @@ import java.util.Optional;
  */
 public sealed interface StreamEvent permits StreamEvent.Data, StreamEvent.Control, StreamEvent.UpToDate {
 
-    /** A data payload chunk. */
+    /**
+     * A data payload chunk.
+     *
+     * @param bytes the raw data bytes
+     * @param contentType the MIME type of the data
+     */
     record Data(ByteBuffer bytes, String contentType) implements StreamEvent {
         public Data {
             Objects.requireNonNull(bytes, "bytes");
@@ -20,7 +25,12 @@ public sealed interface StreamEvent permits StreamEvent.Data, StreamEvent.Contro
         }
     }
 
-    /** A control signal (SSE). */
+    /**
+     * A control signal (SSE).
+     *
+     * @param streamNextOffset the next offset to fetch from
+     * @param streamCursor the cursor for the next fetch (optional)
+     */
     record Control(Offset streamNextOffset, Optional<String> streamCursor) implements StreamEvent {
         public Control {
             Objects.requireNonNull(streamNextOffset, "streamNextOffset");
@@ -28,7 +38,11 @@ public sealed interface StreamEvent permits StreamEvent.Data, StreamEvent.Contro
         }
     }
 
-    /** Indicates the reader is up-to-date at {@code nextOffset}. */
+    /**
+     * Indicates the reader is up-to-date at {@code nextOffset}.
+     *
+     * @param nextOffset the offset where the stream is up-to-date
+     */
     record UpToDate(Offset nextOffset) implements StreamEvent {
         public UpToDate {
             Objects.requireNonNull(nextOffset, "nextOffset");

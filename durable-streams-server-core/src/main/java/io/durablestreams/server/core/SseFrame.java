@@ -26,6 +26,8 @@ public final class SseFrame {
 
     /**
      * Render as an SSE event block (without HTTP headers).
+     *
+     * @return the formatted SSE event string
      */
     public String render() {
         StringBuilder sb = new StringBuilder();
