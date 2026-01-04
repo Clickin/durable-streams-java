@@ -113,7 +113,7 @@ subprojects {
                             developer {
                                 id.set("clickin")
                                 name.set("Clickin")
-                                email.set("your-email@example.com")
+                                email.set("josh87786@gmail.com")
                             }
                         }
                         
