@@ -83,6 +83,15 @@ subprojects {
             withSourcesJar()
         }
 
+        // Suppress javadoc warnings for cleaner build output
+        tasks.withType<Javadoc>().configureEach {
+            options {
+                (this as StandardJavadocDocletOptions).apply {
+                    addStringOption("Xdoclint:none", "-quiet")
+                }
+            }
+        }
+
         configure<PublishingExtension> {
             publications {
                 create<MavenPublication>("mavenJava") {
