@@ -150,8 +150,18 @@ subprojects {
             val signingPassword = findProperty("signingPassword")?.toString() ?: System.getenv("SIGNING_PASSWORD")
             
             if (signingKey != null && signingPassword != null) {
+                // Debug: print key format (first/last 10 chars only for security)
+                val keyPreview = if (signingKey.length > 20) {
+                    "${signingKey.take(10)}...${signingKey.takeLast(10)} (${signingKey.length} chars)"
+                } else {
+                    "[key too short - invalid]"
+                }
+                logger.lifecycle("Signing enabled for ${project.name}: key=$keyPreview")
+                
                 useInMemoryPgpKeys(signingKey, signingPassword)
                 sign(the<PublishingExtension>().publications["mavenJava"])
+            } else {
+                logger.warn("Signing disabled for ${project.name}: signingKey=${signingKey != null}, signingPassword=${signingPassword != null}")
             }
         }
     }

@@ -15,16 +15,40 @@ As of June 30, 2025, **OSSRH (Sonatype OSS Repository Hosting) has been sunset**
 3. Click "Generate User Token"
 4. **Save the username and password** - these cannot be retrieved later!
 
-### 2. Configure GitHub Secrets
+### 2. Generate and Export GPG Key
 
-Add the following secrets to your GitHub repository:
+If you don't have a GPG key yet:
 
-| Secret Name | Description |
-|-------------|-------------|
-| `SIGNING_KEY` | Your GPG private key (ASCII armored) |
-| `SIGNING_PASSWORD` | Your GPG key password |
-| `CENTRAL_PORTAL_USERNAME` | User token username from step 1 |
-| `CENTRAL_PORTAL_PASSWORD` | User token password from step 1 |
+```bash
+# Generate a new GPG key (use your real name and email)
+gpg --gen-key
+
+# List your keys to find the key ID
+gpg --list-secret-keys --keyid-format=long
+
+# Export the private key in ASCII-armored format
+gpg --armor --export-secret-keys YOUR_KEY_ID > private-key.asc
+```
+
+### 3. Configure GitHub Secrets
+
+Add the following secrets to your GitHub repository (Settings → Secrets and variables → Actions → New repository secret):
+
+| Secret Name | Description | How to Get |
+|-------------|-------------|------------|
+| `SIGNING_KEY` | Your GPG private key (ASCII armored) | Copy the **entire contents** of `private-key.asc` including the `-----BEGIN PGP PRIVATE KEY BLOCK-----` and `-----END PGP PRIVATE KEY BLOCK-----` lines |
+| `SIGNING_PASSWORD` | Your GPG key password | The passphrase you entered when creating the GPG key |
+| `CENTRAL_PORTAL_USERNAME` | User token username from Portal | From https://central.sonatype.com/usertoken |
+| `CENTRAL_PORTAL_PASSWORD` | User token password from Portal | From https://central.sonatype.com/usertoken |
+
+**Important**: The `SIGNING_KEY` must be the full ASCII-armored text, not just the key ID. It should look like:
+```
+-----BEGIN PGP PRIVATE KEY BLOCK-----
+
+lQdGBGb... (many lines of base64 text)
+...
+-----END PGP PRIVATE KEY BLOCK-----
+```
 
 ## Publishing Configuration
 
@@ -149,14 +173,46 @@ All published POMs include:
 
 ## Troubleshooting
 
+### "Could not read PGP secret key" Error
+
+This means the `SIGNING_KEY` secret is not properly formatted. Check:
+
+1. **Verify the key is ASCII-armored**:
+   ```bash
+   # Export the key properly
+   gpg --armor --export-secret-keys YOUR_KEY_ID > private-key.asc
+   
+   # Verify it starts with the header
+   head -1 private-key.asc
+   # Should output: -----BEGIN PGP PRIVATE KEY BLOCK-----
+   ```
+
+2. **Copy the ENTIRE file contents** to GitHub Secrets:
+   ```bash
+   # On Linux/Mac
+   cat private-key.asc | pbcopy  # or xclip -selection clipboard
+   
+   # On Windows
+   Get-Content private-key.asc | Set-Clipboard
+   ```
+
+3. **Ensure no extra whitespace** - paste directly into GitHub Secrets without modification
+
+4. **Test locally** before pushing:
+   ```bash
+   export ORG_GRADLE_PROJECT_signingKey="$(cat private-key.asc)"
+   export ORG_GRADLE_PROJECT_signingPassword="your-passphrase"
+   ./gradlew publishToMavenLocal
+   ```
+
 ### Build Fails with Missing Credentials
 
 Ensure environment variables are set:
 ```bash
 export CENTRAL_PORTAL_USERNAME="your-token-username"
 export CENTRAL_PORTAL_PASSWORD="your-token-password"
-export SIGNING_KEY="$(cat private-key.asc)"
-export SIGNING_PASSWORD="your-gpg-password"
+export ORG_GRADLE_PROJECT_signingKey="$(cat private-key.asc)"
+export ORG_GRADLE_PROJECT_signingPassword="your-gpg-password"
 ```
 
 ### Publication Validation Fails
