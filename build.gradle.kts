@@ -27,7 +27,7 @@ val rocksdbClassifier = providers.gradleProperty("rocksdbClassifier")
 
 allprojects {
     group = "io.github.clickin"
-    version = "0.1.0-SNAPSHOT"
+    version = "0.1.0"
 
     extra["rocksdbVersion"] = rocksdbVersion
     extra["rocksdbClassifier"] = rocksdbClassifier
