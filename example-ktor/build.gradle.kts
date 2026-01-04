@@ -14,6 +14,9 @@ repositories {
     mavenCentral()
 }
 
+val rocksdbVersion = extra["rocksdbVersion"] as String
+val rocksdbClassifier = extra["rocksdbClassifier"] as String
+
 dependencies {
     implementation(project(":durable-streams-ktor"))
     implementation(project(":durable-streams-json-jackson"))
@@ -24,6 +27,7 @@ dependencies {
     runtimeOnly("io.ktor:ktor-server-netty:3.3.2")
     runtimeOnly("io.ktor:ktor-server-sse:3.3.2")
     runtimeOnly("ch.qos.logback:logback-classic:1.4.14")
+    runtimeOnly("org.rocksdb:rocksdbjni:$rocksdbVersion:$rocksdbClassifier")
 }
 
 java { toolchain { languageVersion.set(JavaLanguageVersion.of(17)) } }

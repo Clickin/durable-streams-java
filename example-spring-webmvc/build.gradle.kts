@@ -18,10 +18,16 @@ repositories {
 	mavenCentral()
 }
 
+val rocksdbVersion = extra["rocksdbVersion"] as String
+val rocksdbClassifier = extra["rocksdbClassifier"] as String
+
 dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-web")
 	implementation(project(":durable-streams-servlet"))
 	implementation(project(":durable-streams-json-jackson"))
+
+	runtimeOnly("org.rocksdb:rocksdbjni:$rocksdbVersion:$rocksdbClassifier")
+
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

@@ -8,9 +8,27 @@ node {
     download.set(true)
 }
 
+fun detectRocksDbClassifier(): String {
+    val osName = System.getProperty("os.name").lowercase()
+    return when {
+        osName.contains("win") -> "win64"
+        osName.contains("mac") || osName.contains("darwin") -> "osx"
+        else -> "linux64"
+    }
+}
+
+val rocksdbVersion = libs.versions.rocksdb.get()
+val rocksdbClassifier = providers.gradleProperty("rocksdbClassifier")
+    .orElse(providers.environmentVariable("ROCKSDB_CLASSIFIER"))
+    .orElse(provider { detectRocksDbClassifier() })
+    .get()
+
 allprojects {
     group = "io.durablestreams"
     version = "0.1.0-SNAPSHOT"
+
+    extra["rocksdbVersion"] = rocksdbVersion
+    extra["rocksdbClassifier"] = rocksdbClassifier
 
     repositories {
         mavenCentral()

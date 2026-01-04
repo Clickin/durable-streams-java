@@ -11,6 +11,9 @@ java {
     toolchain { languageVersion.set(JavaLanguageVersion.of(17)) }
 }
 
+val rocksdbVersion = extra["rocksdbVersion"] as String
+val rocksdbClassifier = extra["rocksdbClassifier"] as String
+
 dependencies {
     implementation(project(":durable-streams-server-core"))
     implementation(project(":durable-streams-client"))
@@ -18,6 +21,8 @@ dependencies {
     implementation(project(":durable-streams-json-jackson"))
     implementation(libs.javalin)
     implementation("org.slf4j:slf4j-simple:2.0.16")
+
+    runtimeOnly("org.rocksdb:rocksdbjni:$rocksdbVersion:$rocksdbClassifier")
 }
 
 application {

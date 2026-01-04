@@ -11,6 +11,9 @@ repositories {
     mavenCentral()
 }
 
+val rocksdbVersion = extra["rocksdbVersion"] as String
+val rocksdbClassifier = extra["rocksdbClassifier"] as String
+
 dependencies {
     annotationProcessor("io.micronaut:micronaut-http-validation")
     annotationProcessor("io.micronaut.serde:micronaut-serde-processor")
@@ -19,6 +22,7 @@ dependencies {
     implementation(project(":durable-streams-json-jackson"))
     compileOnly("io.micronaut:micronaut-http-client")
     runtimeOnly("ch.qos.logback:logback-classic")
+    runtimeOnly("org.rocksdb:rocksdbjni:$rocksdbVersion:$rocksdbClassifier")
     testImplementation("io.micronaut:micronaut-http-client")
 }
 

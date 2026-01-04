@@ -64,7 +64,28 @@ durable-streams 의 적합성 테스트 통과
 | 혼합 (읽기 70%, 쓰기 30%) | 기준선 | 동등 | 동등 |
 | 대기 지연시간 | ~2.4ms | ~2.4ms | ~2.4ms |
 
+### 벤치마크 결과 (Quarkus: InMemory vs Filestore)
+
+| 지표 | InMemory p50 | InMemory p99 | Filestore p50 | Filestore p99 | 단위 |
+|------|-------------|-------------|---------------|---------------|------|
+| Baseline Ping | 0.828 | 1.930 | 0.812 | 2.327 | ms |
+| Latency - Total RTT | 2.450 | 5.867 | 3.399 | 8.347 | ms |
+| Latency - Ping | 1.033 | 2.372 | 1.063 | 2.682 | ms |
+| Latency - Overhead | 1.391 | 4.393 | 2.291 | 6.795 | ms |
+| Throughput - Small Messages | 34108.27 | 45143.67 | 24712.04 | 36643.46 | msg/sec |
+| Throughput - Large Messages | 135.28 | 148.48 | 123.58 | 137.98 | msg/sec |
+
+### 벤치마크 머신 사양
+
+- CPU: 13th Gen Intel(R) Core(TM) i5-13600K (14C/20T)
+- RAM: 64 GB
+- OS: Windows 11 Pro (10.0.26200, build 26200)
+- JDK: Temurin OpenJDK 25.0.1 LTS
+- Node.js: v24.12.0
+- 스토리지: WD_BLACK SN850X 2 TB
+
 ### 주요 발견사항
+
 
 - **가상 스레드가 우승** - 동시 읽기 중심 워크로드에서 1.33배 빠름
 - NIO 비동기는 순차 작업에서 콜백 오버헤드 발생
@@ -73,10 +94,10 @@ durable-streams 의 적합성 테스트 통과
 
 ### 왜 가상 스레드 + 블로킹 I/O인가?
 
-**핵심 통찰**: Java의 `AsynchronousFileChannel`은 **진정한 비동기가 아닙니다**. 대부분의 운영체제(Linux의 io_uring 이전)가 네이티브 비동기 파일 I/O API를 제공하지 않기 때문에 내부 스레드 풀을 사용하여 비동기 동작을 에뮬레이션합니다. 즉:
+Java의 `AsynchronousFileChannel`은 **진정한 비동기가 아닙니다**. 대부분의 운영체제(Linux의 io_uring 이전)가 네이티브 비동기 파일 I/O API를 제공하지 않기 때문에 내부 스레드 풀을 사용하여 비동기 동작을 에뮬레이션합니다. 즉:
 
 - `AsynchronousFileChannel` = 숨겨진 스레드 풀 + 블로킹 I/O + 콜백 래퍼
-- **가상 스레드** = 명시적 스레드 풀 + 블로킹 I/O + 단순한 코드
+- **가상 스레드** = 명시적 스레드 풀(캐리어 스레드) + 블로킹 I/O + 단순한 코드
 
 두 방식 모두 내부적으로 스레드를 사용하므로, 가상 스레드는 콜백 복잡성을 제거하면서 **더 나은 성능**(동시 읽기에서 1.33배 빠름)을 제공합니다. 우리가 얻는 것:
 - ✅ 더 단순하고 유지보수 가능한 코드
@@ -84,7 +105,7 @@ durable-streams 의 적합성 테스트 통과
 - ✅ 스레드 풀 크기에 대한 완전한 제어
 - ✅ 숨겨진 스레드 풀 없음
 
-**결론**: **가상 스레드 + 블로킹 I/O**를 선택했습니다. 콜백 복잡성 없이 뛰어난 동시 성능을 제공합니다. `AsynchronousFileChannel`의 "비동기"는 어차피 숨겨진 스레드였습니다.
+**결론**: **가상 스레드 + 블로킹 I/O**를 선택했습니다. 콜백 복잡성 없이 뛰어난 동시 성능을 제공합니다.
 
 > **참고**: 비동기 NIO 구현은 더 간단하고 빠른 가상 스레드 방식을 위해 제거되었습니다. 원본 벤치마크 코드는 커밋 [`40fba4b`](https://github.com/durable-streams/durable-streams-java/commit/40fba4b432112779bd3d8ef582ded54f836f20c8)를 참조하세요.
 

@@ -51,7 +51,7 @@ These modules expose the full protocol via framework-specific adapters and are u
 Early in development, we benchmarked three storage approaches:
 1. **Blocking I/O** - Synchronous `FileChannel` (baseline)
 2. **NIO Async** - `AsynchronousFileChannel` with callbacks
-3. **Virtual Threads** - Blocking I/O wrapped with virtual thread executor (current implementation)
+3. **Virtual Threads** - Blocking I/O wrapped with virtual thread executor (recommanded)
 
 ### Benchmark Results
 
@@ -63,6 +63,26 @@ Early in development, we benchmarked three storage approaches:
 | Mixed (70% read, 30% write) | Baseline | Equivalent | Equivalent |
 | Await latency | ~2.4ms | ~2.4ms | ~2.4ms |
 
+### Benchmark Results (Quarkus: InMemory vs Filestore)
+
+| Metric | InMemory p50 | InMemory p99 | Filestore p50 | Filestore p99 | Unit |
+|--------|-------------|-------------|---------------|---------------|------|
+| Baseline Ping | 0.828 | 1.930 | 0.812 | 2.327 | ms |
+| Latency - Total RTT | 2.450 | 5.867 | 3.399 | 8.347 | ms |
+| Latency - Ping | 1.033 | 2.372 | 1.063 | 2.682 | ms |
+| Latency - Overhead | 1.391 | 4.393 | 2.291 | 6.795 | ms |
+| Throughput - Small Messages | 34108.27 | 45143.67 | 24712.04 | 36643.46 | msg/sec |
+| Throughput - Large Messages | 135.28 | 148.48 | 123.58 | 137.98 | msg/sec |
+
+### Benchmark Machine
+
+- CPU: 13th Gen Intel(R) Core(TM) i5-13600K (14C/20T)
+- RAM: 64 GB
+- OS: Windows 11 Pro (10.0.26200, build 26200)
+- JDK: Temurin OpenJDK 25.0.1 LTS
+- Node.js: v24.12.0
+- Storage: WD_BLACK SN850X 2 TB
+
 ### Key Findings
 
 - **Virtual Threads won** for concurrent read-heavy workloads (1.33x faster)
@@ -72,10 +92,10 @@ Early in development, we benchmarked three storage approaches:
 
 ### Why Virtual Threads + Blocking I/O?
 
-**Critical insight**: Java's `AsynchronousFileChannel` is **not truly asynchronous**. It uses an internal thread pool to emulate async behavior because most operating systems (pre-io_uring on Linux) don't provide native async file I/O APIs. This means:
+Java's `AsynchronousFileChannel` is **not truly asynchronous**. It uses an internal thread pool to emulate async behavior because most operating systems (pre-io_uring on Linux) don't provide native async file I/O APIs. This means:
 
 - `AsynchronousFileChannel` = Hidden thread pool + Blocking I/O + Callback wrapper
-- **Virtual Threads** = Explicit thread pool + Blocking I/O + Simpler code
+- **Virtual Threads** = Explicit thread pool(carrier thread) + Blocking I/O + Simpler code
 
 Since both approaches use threads internally, Virtual Threads eliminate the callback complexity while delivering **better performance** (1.33x faster for concurrent reads). We get:
 - ✅ Simpler, more maintainable code
@@ -83,7 +103,7 @@ Since both approaches use threads internally, Virtual Threads eliminate the call
 - ✅ Full control over thread pool sizing
 - ✅ No hidden thread pool surprises
 
-**Conclusion**: We chose **Virtual Threads + Blocking I/O** as it delivers superior concurrent performance without callback complexity. The "async" in `AsynchronousFileChannel` was just hidden threads anyway.
+**Conclusion**: We chose **Virtual Threads + Blocking I/O** as it delivers superior concurrent performance without callback complexity.
 
 > **Note**: The async NIO implementation was removed in favor of the simpler and faster virtual thread approach. See commit [`40fba4b`](https://github.com/durable-streams/durable-streams-java/commit/40fba4b432112779bd3d8ef582ded54f836f20c8) for the original benchmark code.
 
@@ -96,19 +116,40 @@ JSON mode is required by the protocol and implemented via the JSON SPI. You can 
 
 ## RocksDB native binaries
 
-RocksDB JNI publishes OS-specific classifier jars. This project selects a classifier at runtime so builds stay small.
+RocksDB JNI publishes OS-specific classifier jars (native binaries).
+
+`durable-streams-server-core` uses RocksDB for persistent metadata when you use file-based stores (for example, `BlockingFileStreamStore` defaults to RocksDB metadata).
+To keep Maven Central artifacts portable, this project does not publish an OS-specific `rocksdbjni` classifier dependency transitively.
+You must add the correct classifier at runtime.
+
+Gradle:
+
+```kotlin
+dependencies {
+    implementation("io.durablestreams:durable-streams-server-core:<version>")
+    runtimeOnly("org.rocksdb:rocksdbjni:<rocksdb-version>:linux64") // or win64/osx
+}
+```
+
+Maven:
+
+```xml
+<dependency>
+  <groupId>org.rocksdb</groupId>
+  <artifactId>rocksdbjni</artifactId>
+  <version><!-- rocksdb-version --></version>
+  <classifier>linux64</classifier>
+  <scope>runtime</scope>
+</dependency>
+```
+
+When building this repository, the classifier used for tests/examples is selected as:
 
 - Default: detect current OS
 - Override with Gradle property: `-ProcksdbClassifier=win64`
 - Override with env var: `ROCKSDB_CLASSIFIER=win64`
 
 Common classifiers: `win64`, `linux64`, `osx`.
-
-Example:
-
-```
-./gradlew :durable-streams-server-core:build -ProcksdbClassifier=linux64
-```
 
 ## Client usage
 

@@ -8,6 +8,9 @@ repositories {
     mavenLocal()
 }
 
+val rocksdbVersion = extra["rocksdbVersion"] as String
+val rocksdbClassifier = extra["rocksdbClassifier"] as String
+
 dependencies {
     implementation(enforcedPlatform("io.quarkus.platform:quarkus-bom:3.30.5"))
     implementation("io.quarkus:quarkus-arc")
@@ -16,6 +19,8 @@ dependencies {
     testImplementation("io.rest-assured:rest-assured")
     implementation(project(":durable-streams-quarkus"))
     implementation(project(":durable-streams-json-jackson"))
+
+    runtimeOnly("org.rocksdb:rocksdbjni:$rocksdbVersion:$rocksdbClassifier")
 }
 
 group = "org.acme"

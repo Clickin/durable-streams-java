@@ -40,7 +40,14 @@ public final class RocksDbMetadataStore implements MetadataStore {
         } catch (IOException e) {
             throw new IllegalStateException("Failed to create RocksDB directory", e);
         }
-        RocksDB.loadLibrary();
+        try {
+            RocksDB.loadLibrary();
+        } catch (UnsatisfiedLinkError e) {
+            throw new IllegalStateException(
+                    "RocksDB native library failed to load. Add a platform-specific RocksDB JNI dependency at runtime "
+                            + "(org.rocksdb:rocksdbjni:<version>:<classifier>, e.g. linux64/win64/osx).",
+                    e);
+        }
         this.options = new Options()
                 .setCreateIfMissing(true)
                 .setWriteBufferSize(writeBufferSize)
