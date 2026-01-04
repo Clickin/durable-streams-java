@@ -33,4 +33,4 @@ jobs:
           ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.SIGNING_PASSWORD }}
           CENTRAL_PORTAL_USERNAME: ${{ secrets.CENTRAL_PORTAL_USERNAME }}
           CENTRAL_PORTAL_PASSWORD: ${{ secrets.CENTRAL_PORTAL_PASSWORD }}
-        run: chmod +x ./gradlew && ./gradlew publishAllPublicationsToMavenCentralRepository --no-daemon
+        run: chmod +x ./gradlew && ./gradlew publishAggregationToCentralPortal --no-daemon

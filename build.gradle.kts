@@ -3,7 +3,6 @@ plugins {
     id("com.github.node-gradle.node") version "7.1.0"
     id("maven-publish")
     id("signing")
-    id("com.gradleup.nmcp") version "0.0.8" apply false
 }
 
 node {
@@ -78,83 +77,11 @@ subprojects {
     if (publishableProjects.contains(project.name)) {
         apply(plugin = "maven-publish")
         apply(plugin = "signing")
-        apply(plugin = "com.gradleup.nmcp")
 
         configure<JavaPluginExtension> {
             withJavadocJar()
             withSourcesJar()
         }
-
-        // Suppress javadoc warnings for cleaner build output
-        tasks.withType<Javadoc>().configureEach {
-            options {
-                (this as StandardJavadocDocletOptions).apply {
-                    addStringOption("Xdoclint:none", "-quiet")
-                }
-            }
-        }
-
-        configure<PublishingExtension> {
-            publications {
-                create<MavenPublication>("mavenJava") {
-                    from(components["java"])
-                    
-                    pom {
-                        name.set(project.name)
-                        description.set("Java implementation of the Durable Streams protocol")
-                        url.set("https://github.com/durable-streams/durable-streams-java")
-                        
-                        licenses {
-                            license {
-                                name.set("MIT License")
-                                url.set("https://opensource.org/licenses/MIT")
-                            }
-                        }
-                        
-                        developers {
-                            developer {
-                                id.set("clickin")
-                                name.set("Clickin")
-                                email.set("your-email@example.com")
-                            }
-                        }
-                        
-                        scm {
-                            connection.set("scm:git:git://github.com/durable-streams/durable-streams-java.git")
-                            developerConnection.set("scm:git:ssh://github.com/durable-streams/durable-streams-java.git")
-                            url.set("https://github.com/durable-streams/durable-streams-java")
-                        }
-                    }
-                }
-            }
-        }
-
-        configure<SigningExtension> {
-            val signingKey = findProperty("signingKey")?.toString() ?: System.getenv("SIGNING_KEY")
-            val signingPassword = findProperty("signingPassword")?.toString() ?: System.getenv("SIGNING_PASSWORD")
-            
-            if (signingKey != null && signingPassword != null) {
-                useInMemoryPgpKeys(signingKey, signingPassword)
-                sign(the<PublishingExtension>().publications["mavenJava"])
-            }
-        }
-
-        // Configure Maven Central Portal publishing
-        configure<com.gradleup.nmcp.NmcpExtension> {
-            // Publish automatically on successful validation
-            publishAggregation.set(com.gradleup.nmcp.PublishAggregation.AUTOMATIC)
-            
-            // Portal credentials
-            username.set(findProperty("centralPortalUsername")?.toString() ?: System.getenv("CENTRAL_PORTAL_USERNAME"))
-            password.set(findProperty("centralPortalPassword")?.toString() ?: System.getenv("CENTRAL_PORTAL_PASSWORD"))
-            
-            // Publication name
-            publicationType.set("USER_MANAGED")
-            
-            // Optionally specify which publication to use
-            publications.set(setOf("mavenJava"))
-        }
-    }
 
         // Suppress javadoc warnings for cleaner build output
         tasks.withType<Javadoc>().configureEach {

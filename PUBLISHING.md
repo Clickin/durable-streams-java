@@ -32,21 +32,22 @@ Add the following secrets to your GitHub repository:
 
 We use the [`com.gradleup.nmcp`](https://github.com/GradleUp/nmcp) Gradle plugin for publishing to Maven Central Portal.
 
-Configuration in `build.gradle.kts`:
+Configuration in `settings.gradle.kts`:
 ```kotlin
 plugins {
-    id("com.gradleup.nmcp") version "0.0.8" apply false
+    id("com.gradleup.nmcp.settings") version "1.4.3"
 }
 
-// For each publishable module:
-configure<com.gradleup.nmcp.NmcpExtension> {
-    publishAggregation.set(com.gradleup.nmcp.PublishAggregation.AUTOMATIC)
-    username.set(System.getenv("CENTRAL_PORTAL_USERNAME"))
-    password.set(System.getenv("CENTRAL_PORTAL_PASSWORD"))
-    publicationType.set("USER_MANAGED")
-    publications.set(setOf("mavenJava"))
+nmcpSettings {
+    centralPortal {
+        username.set(System.getenv("CENTRAL_PORTAL_USERNAME"))
+        password.set(System.getenv("CENTRAL_PORTAL_PASSWORD"))
+        publishingType.set("USER_MANAGED")
+    }
 }
 ```
+
+The settings plugin automatically applies `com.gradleup.nmcp` to all subprojects that have `maven-publish` configured.
 
 ### Publishable Modules (11 total)
 
@@ -90,7 +91,7 @@ The following modules are **NOT** published:
    - Generate javadoc and sources JARs
    - Sign all artifacts with GPG
    - Upload to Maven Central Portal
-   - Automatically publish after validation passes
+   - Wait for manual release (USER_MANAGED mode)
 
 3. Artifacts will be available at:
    ```

@@ -1,3 +1,7 @@
+plugins {
+    id("com.gradleup.nmcp.settings") version "1.4.3"
+}
+
 rootProject.name = "durable-streams-java"
 
 include(
@@ -19,5 +23,13 @@ include(
   "example-spring-webmvc",
   "example-ktor"
 )
+
+nmcpSettings {
+    centralPortal {
+        username.set(System.getenv("CENTRAL_PORTAL_USERNAME"))
+        password.set(System.getenv("CENTRAL_PORTAL_PASSWORD"))
+        publishingType.set("USER_MANAGED")
+    }
+}
 
 
